@@ -2,7 +2,7 @@
 // Toucher un obstacle fait perdre de la vitesse. Rival IA à vitesse quasi constante.
 import { C, H, pixelText, rand, steppedSky, W, type ActivityResult, type HudItem, type Input, type Mode } from './engine';
 import type { Sport } from './data';
-import { drawScene, drawSprite, fitHeight } from '../sprites';
+import { drawBackground, drawSprite, fitHeight } from '../sprites';
 import { sfx } from '../sound';
 
 export const RACE_M = 600;
@@ -123,9 +123,8 @@ export class Race implements Mode {
   draw(ctx: CanvasRenderingContext2D) {
     const cam = this.pos;
     const sx = (m: number) => PLAYER_X + (m - cam) * PX_PER_M;
-    if (this.sport.scene) {
-      // décor du continent (design) + traits de sol qui défilent
-      drawScene(ctx, this.sport.scene);
+    if (this.sport.background && drawBackground(ctx, this.sport.background, W, H)) {
+      // fond du continent (design) + traits de sol qui défilent
       ctx.fillStyle = 'rgba(10,10,26,.18)';
       for (let m = Math.floor((cam - 30) / 5) * 5; m < cam + 80; m += 5) ctx.fillRect(sx(m), GROUND + 28, 16, 8);
     } else {

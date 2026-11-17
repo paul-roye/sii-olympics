@@ -5,12 +5,6 @@ export type ModeKind = 'tricks' | 'chaser' | 'race';
 export const MODES: ModeKind[] = ['tricks', 'chaser', 'race'];
 export const MODE_LABEL: Record<ModeKind, string> = { tricks: 'FIGURES', chaser: 'BALLON', race: 'COURSE' };
 
-import { SCENES } from '../zoneAssets';
-
-const W_FULL = 800;
-
-export type SceneBands = [number, number, number, number, string][];
-
 export interface Sport {
   name: string;
   country: string;
@@ -24,7 +18,8 @@ export interface Sport {
   player?: string;
   ball?: string;
   rival?: string;
-  scene?: SceneBands;
+  /** Fond 800×450 du design (sprite plein cadre). */
+  background?: string;
 }
 
 export interface Zone {
@@ -88,16 +83,13 @@ export const ZONES: Zone[] = [
   },
 ];
 
-// Assets par continent : sprites des planches Sprites-XX et décors des écrans du design.
+// Assets par continent (planches Sprites-XX du design) : sprites, fonds 800×450, drapeaux.
 for (const z of ZONES) {
   const [t, c, r] = z.sports;
-  const sc = SCENES[z.id] ?? {};
-  // on ne garde que les bandes plein cadre (le design y superpose ses propres panneaux de HUD)
-  const full = (b?: SceneBands) => b?.filter(([x, , w]) => x === 0 && w >= W_FULL);
   z.sports.forEach((s, i) => (s.flag = `${z.id}_flag${i + 1}`));
-  Object.assign(t, { player: `${z.id}_tricksPlayer`, hazard: `${z.id}_hazard`, scene: full(sc.tricks) });
-  Object.assign(c, { player: `${z.id}_chaserPlayer`, ball: `${z.id}_ball`, scene: sc.chaser });
-  Object.assign(r, { player: `${z.id}_racePlayer`, rival: `${z.id}_rival`, hazard: `${z.id}_hazard`, scene: full(sc.race) });
+  Object.assign(t, { player: `${z.id}_tricksPlayer`, hazard: `${z.id}_hazard`, background: `${z.id}_bg_tricks` });
+  Object.assign(c, { player: `${z.id}_chaserPlayer`, ball: `${z.id}_ball`, background: `${z.id}_bg_chaser` });
+  Object.assign(r, { player: `${z.id}_racePlayer`, rival: `${z.id}_rival`, hazard: `${z.id}_hazard`, background: `${z.id}_bg_race` });
 }
 
 export const zoneById = (id: string) => ZONES.find((z) => z.id === id);

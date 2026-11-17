@@ -4,7 +4,7 @@
 // Chaque touche a un temps limité (cadre qui se resserre). Réussite = creux plus court, raté = creux plus long.
 import { C, clamp, H, pixelText, steppedSky, W, type ActivityResult, type HudItem, type Input, type Mode } from './engine';
 import type { Sport } from './data';
-import { drawScene, drawSprite, fitHeight } from '../sprites';
+import { drawBackground, drawSprite, fitHeight } from '../sprites';
 import { sfx } from '../sound';
 
 export const TRICKS_LIMIT = 60;
@@ -231,9 +231,8 @@ export class Tricks implements Mode {
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    if (this.sport.scene) {
-      // décor du continent (design) + traits de sol qui défilent
-      drawScene(ctx, this.sport.scene);
+    if (this.sport.background && drawBackground(ctx, this.sport.background, W, H)) {
+      // fond du continent (design) + traits de sol qui défilent
       ctx.fillStyle = 'rgba(10,10,26,.18)';
       for (let x = -(this.scroll % 48); x < W; x += 48) ctx.fillRect(x, GROUND + 28, 24, 8);
     } else {

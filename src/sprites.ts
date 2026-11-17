@@ -47,12 +47,15 @@ export function drawSprite(ctx: CanvasRenderingContext2D, name: string, cx: numb
   ctx.restore();
 }
 
-/** Dessine un décor en bandes [x, y, w, h, couleur] (issu du design, canvas 800×450). */
-export function drawScene(ctx: CanvasRenderingContext2D, bands: [number, number, number, number, string][]) {
-  for (const [x, y, w, h, c] of bands) {
-    ctx.fillStyle = c;
-    ctx.fillRect(x, y, w, h);
-  }
+/** Dessine un fond plein cadre (sprite 800×450 du design). Renvoie false s'il n'est pas encore chargé. */
+export function drawBackground(ctx: CanvasRenderingContext2D, name: string, w: number, h: number): boolean {
+  const img = image(name);
+  if (!img.complete || !img.naturalWidth) return false;
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, 0, 0, w, h);
+  ctx.restore();
+  return true;
 }
 
 /** Hauteur de dessin pour qu'un sprite tienne dans une boîte carrée de `box` px. */

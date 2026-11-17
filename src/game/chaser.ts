@@ -1,6 +1,6 @@
 // Mode "chaser" : vue de dessus, toucher le ballon 8 fois en 30 s.
 import { C, clamp, H, type Input, type Mode, type HudItem, type ActivityResult, rand, W } from './engine';
-import { drawScene, drawSprite } from '../sprites';
+import { drawBackground, drawSprite } from '../sprites';
 import { sfx } from '../sound';
 import type { Sport } from './data';
 
@@ -125,26 +125,30 @@ export class Chaser implements Mode {
 
   draw(ctx: CanvasRenderingContext2D) {
     const fw = W - 2 * PAD;
-    if (this.sport.scene) drawScene(ctx, this.sport.scene); // terrain du continent (design)
-    else {
+    const border = (color: string) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(PAD - 4, PAD - 4, fw + 8, 4);
+      ctx.fillRect(PAD - 4, H - PAD, fw + 8, 4);
+      ctx.fillRect(PAD - 4, PAD - 4, 4, H - 2 * PAD + 8);
+      ctx.fillRect(W - PAD, PAD - 4, 4, H - 2 * PAD + 8);
+    };
+    if (this.sport.background && drawBackground(ctx, this.sport.background, W, H)) {
+      // terrain du continent (design, lignes comprises) : liseré blanc seulement quand on touche le ballon
+      if (this.flash > 0) border(C.cream);
+    } else {
       ctx.fillStyle = C.night0;
       ctx.fillRect(0, 0, W, H);
       for (let i = 0; i < 10; i++) {
         ctx.fillStyle = i % 2 ? C.night2 : C.night3;
         ctx.fillRect(PAD + Math.floor((i * fw) / 10), PAD, Math.ceil(fw / 10), H - 2 * PAD);
       }
-    }
-    const line = this.flash > 0 ? C.cream : this.accent;
-    ctx.fillStyle = line;
-    ctx.fillRect(PAD - 4, PAD - 4, fw + 8, 4);
-    ctx.fillRect(PAD - 4, H - PAD, fw + 8, 4);
-    ctx.fillRect(PAD - 4, PAD - 4, 4, H - 2 * PAD + 8);
-    ctx.fillRect(W - PAD, PAD - 4, 4, H - 2 * PAD + 8);
-    ctx.fillStyle = C.line;
-    ctx.fillRect(W / 2 - 2, PAD, 4, H - 2 * PAD);
-    for (let a = 0; a < 32; a++) {
-      const ang = (a / 32) * Math.PI * 2;
-      ctx.fillRect(Math.round(W / 2 + Math.cos(ang) * 60) - 2, Math.round(H / 2 + Math.sin(ang) * 60) - 2, 4, 4);
+      border(this.flash > 0 ? C.cream : this.accent);
+      ctx.fillStyle = C.line;
+      ctx.fillRect(W / 2 - 2, PAD, 4, H - 2 * PAD);
+      for (let a = 0; a < 32; a++) {
+        const ang = (a / 32) * Math.PI * 2;
+        ctx.fillRect(Math.round(W / 2 + Math.cos(ang) * 60) - 2, Math.round(H / 2 + Math.sin(ang) * 60) - 2, 4, 4);
+      }
     }
     if (this.target) {
       ctx.fillStyle = C.text2;
