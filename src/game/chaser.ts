@@ -1,5 +1,6 @@
 // Mode "chaser" : vue de dessus, toucher le ballon 8 fois en 30 s.
-import { clamp, emoji, H, type Input, type Mode, type HudItem, type ActivityResult, rand, W } from './engine';
+import { C, clamp, H, type Input, type Mode, type HudItem, type ActivityResult, rand, W } from './engine';
+import { drawSprite } from '../sprites';
 import type { Sport } from './data';
 
 const GOAL = 8;
@@ -109,38 +110,38 @@ export class Chaser implements Mode {
 
   hud(): HudItem[] {
     return [
-      { label: 'Touches', value: `${this.hits} / ${GOAL}` },
-      { label: 'Temps', value: `${Math.max(0, LIMIT - this.t).toFixed(1)} s` },
+      { label: 'TOUCHES', value: `${this.hits}/${GOAL}`, progress: this.hits / GOAL },
+      { label: 'TEMPS', value: `${Math.max(0, LIMIT - this.t).toFixed(1)} s`, progress: Math.max(0, 1 - this.t / LIMIT) },
     ];
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    ctx.fillStyle = '#123524';
+    ctx.fillStyle = C.night0;
     ctx.fillRect(0, 0, W, H);
+    // terrain en bandes crantées
+    const fw = W - 2 * PAD;
     for (let i = 0; i < 10; i++) {
-      ctx.fillStyle = i % 2 ? '#15402b' : '#123524';
-      ctx.fillRect(PAD + (i * (W - 2 * PAD)) / 10, PAD, (W - 2 * PAD) / 10, H - 2 * PAD);
+      ctx.fillStyle = i % 2 ? C.night2 : C.night3;
+      ctx.fillRect(PAD + Math.floor((i * fw) / 10), PAD, Math.ceil(fw / 10), H - 2 * PAD);
     }
-    ctx.strokeStyle = this.flash > 0 ? '#fff' : this.accent;
-    ctx.lineWidth = 4;
-    ctx.strokeRect(PAD, PAD, W - 2 * PAD, H - 2 * PAD);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255,255,255,.35)';
-    ctx.beginPath();
-    ctx.moveTo(W / 2, PAD);
-    ctx.lineTo(W / 2, H - PAD);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(W / 2, H / 2, 60, 0, Math.PI * 2);
-    ctx.stroke();
-
+    const line = this.flash > 0 ? C.cream : this.accent;
+    ctx.fillStyle = line;
+    ctx.fillRect(PAD - 4, PAD - 4, fw + 8, 4);
+    ctx.fillRect(PAD - 4, H - PAD, fw + 8, 4);
+    ctx.fillRect(PAD - 4, PAD - 4, 4, H - 2 * PAD + 8);
+    ctx.fillRect(W - PAD, PAD - 4, 4, H - 2 * PAD + 8);
+    ctx.fillStyle = C.line;
+    ctx.fillRect(W / 2 - 2, PAD, 4, H - 2 * PAD);
+    for (let a = 0; a < 32; a++) {
+      const ang = (a / 32) * Math.PI * 2;
+      ctx.fillRect(Math.round(W / 2 + Math.cos(ang) * 60) - 2, Math.round(H / 2 + Math.sin(ang) * 60) - 2, 4, 4);
+    }
     if (this.target) {
-      ctx.strokeStyle = 'rgba(255,255,255,.4)';
-      ctx.beginPath();
-      ctx.arc(this.target.x, this.target.y, 10, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.fillStyle = C.text2;
+      ctx.fillRect(this.target.x - 8, this.target.y - 2, 16, 4);
+      ctx.fillRect(this.target.x - 2, this.target.y - 8, 4, 16);
     }
-    emoji(ctx, this.sport.props.ball ?? '⚽', this.bx, this.by, BR * 2.2);
-    emoji(ctx, '🏃', this.px, this.py, PR * 2.4);
+    drawSprite(ctx, 'ball', this.bx, this.by + BR + 2, BR * 2.4);
+    drawSprite(ctx, 'playerTop', this.px, this.py + PR + 2, PR * 2.4);
   }
 }

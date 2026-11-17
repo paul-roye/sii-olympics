@@ -1,23 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
-import { MODES, ZONES, Zone } from './game/data';
+import { MODE_LABEL, MODES, ZONES, zoneById, type Zone } from './game/data';
 import type { ActivityResult } from './game/engine';
 import { GameCanvas } from './GameCanvas';
-import { LeaderRow, saveScore, storageMode, topScores } from './scores';
+import { AttemptRefused, leaderboard, MAX_TRIES, playedZones, saveScore, startAttempt, storageMode } from './scores';
+import { Header, MedalCounter, openLeaderboardWindow, Sprite } from './ui';
 
 interface Player {
   pseudo: string;
   email: string;
+  played: string[]; // continents déjà joués dans la fenêtre de jeu
 }
 
 type Screen =
   | { name: 'signup' }
-  | { name: 'home' }
+  | { name: 'zones' }
   | { name: 'play'; zone: Zone; step: number; results: ActivityResult[] }
   | { name: 'result'; zone: Zone; step: number; results: ActivityResult[] }
   | { name: 'final'; zone: Zone; results: ActivityResult[] };
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const zoneName = (id: string) => ZONES.find((z) => z.id === id)?.name ?? id;
 
 /** Chrono total des jeux 2 + 3 (activités réussies uniquement). */
 function totalTime(results: ActivityResult[]) {
@@ -25,15 +26,14 @@ function totalTime(results: ActivityResult[]) {
   return timed.length ? Math.round(timed.reduce((s, r) => s + (r.time ?? 0), 0) * 10) / 10 : null;
 }
 const totalScore = (results: ActivityResult[]) => results.reduce((s, r) => s + r.score, 0);
+const medalOf = (r?: ActivityResult) => (r ? (r.won ? 'gold' : 'medalEmpty') : 'medalEmpty');
 
 export default function App() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'signup' });
-  const [medals, setMedals] = useState<Record<string, boolean[]>>({});
 
-  const newPlayer = () => {
+  const reset = () => {
     setPlayer(null);
-    setMedals({});
     setScreen({ name: 'signup' });
   };
 
@@ -42,76 +42,36 @@ export default function App() {
       <Signup
         onDone={(p) => {
           setPlayer(p);
-          setScreen({ name: 'home' });
+          setScreen({ name: 'zones' });
         }}
       />
     );
 
-  if (screen.name === 'home') {
-    const total = Object.values(medals).flat().filter(Boolean).length;
+  if (screen.name === 'zones')
     return (
-      <div className="page">
-        <header className="header">
-          <h1>🏟️ Tour du Monde des Sports</h1>
-          <p className="muted">
-            Salut <strong>{player.pseudo}</strong> ! Choisis ta zone · 🏅 {total}/12 médailles
-          </p>
-        </header>
-        <div className="zones">
-          {ZONES.map((z) => {
-            const m = medals[z.id] ?? [];
-            return (
-              <button
-                key={z.id}
-                className="zone-card"
-                style={{ ['--accent' as string]: z.accent }}
-                onClick={() => setScreen({ name: 'play', zone: z, step: 0, results: [] })}
-              >
-                <div className="zone-head">
-                  <span className="zone-emoji">{z.emoji}</span>
-                  <strong>{z.name}</strong>
-                  <span className="muted">{m.filter(Boolean).length}/3</span>
-                </div>
-                <ol>
-                  {z.sports.map((s, i) => (
-                    <li key={s.name}>
-                      {m[i] ? '🏅' : s.emoji} {s.name} <span className="muted">{s.flag}</span>
-                    </li>
-                  ))}
-                </ol>
-              </button>
-            );
-          })}
-        </div>
-        <Leaderboard />
-        <button className="link" onClick={newPlayer}>
-          Changer de joueur
-        </button>
-      </div>
+      <ZoneSelect
+        player={player}
+        onPlayed={(played) => setPlayer({ ...player, played })}
+        onStart={(zone) => {
+          setPlayer({ ...player, played: [...player.played, zone.id] });
+          setScreen({ name: 'play', zone, step: 0, results: [] });
+        }}
+        onQuit={reset}
+      />
     );
-  }
 
   if (screen.name === 'play') {
     const { zone, step, results } = screen;
     return (
-      <div className="page">
-        <GameCanvas
-          key={`${zone.id}-${step}`}
-          zone={zone}
-          kind={MODES[step]}
-          sport={zone.sports[step]}
-          step={step + 1}
-          onFinish={(r) => {
-            const all = [...results, r];
-            setMedals((prev) => {
-              const m = [...(prev[zone.id] ?? [false, false, false])];
-              m[step] = m[step] || r.won;
-              return { ...prev, [zone.id]: m };
-            });
-            setScreen({ name: 'result', zone, step, results: all });
-          }}
-        />
-      </div>
+      <GameCanvas
+        key={`${zone.id}-${step}`}
+        zone={zone}
+        kind={MODES[step]}
+        sport={zone.sports[step]}
+        step={step}
+        medals={results.filter((r) => r.won).length}
+        onFinish={(r) => setScreen({ name: 'result', zone, step, results: [...results, r] })}
+      />
     );
   }
 
@@ -121,81 +81,240 @@ export default function App() {
     const sport = zone.sports[step];
     const last = step === 2;
     return (
-      <div className="page center" style={{ ['--accent' as string]: zone.accent }}>
-        <div className="card result">
-          <div className="big-emoji">{r.won ? '🏅' : '😓'}</div>
-          <h2>{r.won ? 'Médaille gagnée !' : 'Raté !'}</h2>
-          <p>
-            {sport.emoji} {sport.name} — {sport.flag} {sport.country}
-          </p>
-          <p className="stat">{r.details}</p>
-          <p className="muted">+{r.score} points</p>
-          <div className="actions">
-            <button
-              className="primary"
-              autoFocus
-              onClick={() =>
-                setScreen(last ? { name: 'final', zone, results } : { name: 'play', zone, step: step + 1, results })
-              }
-            >
-              {last ? '🏁 Voir l’arrivée' : 'Suite ▶'}
-            </button>
-          </div>
-        </div>
+      <div className="screen" style={{ ['--accent' as string]: zone.accent }}>
+        <Header>
+          <span className="chip accent">{zone.name.toUpperCase()}</span>
+          <MedalCounter value={results.filter((x) => x.won).length} total={3} />
+        </Header>
+        <main className="wrap narrow">
+          <section className="panel result-panel">
+            <div className="result-head">
+              <Sprite name={r.won ? 'gold' : 'medalEmpty'} h={96} />
+              <div>
+                <p className={'big-word ' + (r.won ? 'ok' : 'ko')}>{r.won ? 'GAGNÉ !' : 'PERDU...'}</p>
+                <p className="vt">
+                  {r.won ? 'Médaille d’or' : 'Pas de médaille'} — {sport.name}, {sport.country}.
+                </p>
+              </div>
+            </div>
+            <div className="stats">
+              <Stat label="RÉSULTAT" value={r.details} />
+              <Stat label="SCORE" value={`+${r.score}`} gold />
+            </div>
+            <div className="actions">
+              <EnterButton
+                className="px-btn big accent"
+                onClick={() => setScreen(last ? { name: 'final', zone, results } : { name: 'play', zone, step: step + 1, results })}
+              >
+                <Sprite name="next" h={16} />
+                {last ? 'ARRIVÉE' : `ÉPREUVE ${step + 2} : ${MODE_LABEL[MODES[step + 1]]}`}
+              </EnterButton>
+            </div>
+          </section>
+        </main>
       </div>
     );
   }
 
-  return <Final player={player} zone={screen.zone} results={screen.results} onHome={() => setScreen({ name: 'home' })} onNext={newPlayer} />;
+  return <Final player={player} zone={screen.zone} results={screen.results} onDone={reset} />;
+}
+
+function Stat({ label, value, gold, color }: { label: string; value: string; gold?: boolean; color?: string }) {
+  return (
+    <div className="stat">
+      <span className="lbl">{label}</span>
+      <span className="val" style={{ color: color ?? (gold ? 'var(--gold)' : undefined) }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+/** Bouton déclenché aussi par la touche Entrée. */
+function EnterButton({ onClick, className, children }: { onClick: () => void; className: string; children: React.ReactNode }) {
+  const ref = useRef(onClick);
+  ref.current = onClick;
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.repeat) return;
+      window.removeEventListener('keydown', h);
+      ref.current();
+    };
+    // délai : évite qu'une touche encore enfoncée valide tout de suite
+    const t = setTimeout(() => window.addEventListener('keydown', h), 400);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('keydown', h);
+    };
+  }, []);
+  return (
+    <button className={className} onClick={onClick}>
+      {children}
+    </button>
+  );
 }
 
 function Signup({ onDone }: { onDone: (p: Player) => void }) {
   const [pseudo, setPseudo] = useState('');
   const [email, setEmail] = useState('');
   const [consent, setConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const valid = pseudo.trim().length > 0 && pseudo.trim().length <= 24 && EMAIL_RE.test(email.trim()) && consent;
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!valid || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const played = await playedZones(pseudo);
+      if (played.length >= MAX_TRIES) {
+        setError(`${pseudo.trim()} a déjà utilisé ses ${MAX_TRIES} essais aujourd’hui. Reviens demain !`);
+        return;
+      }
+      onDone({ pseudo: pseudo.trim(), email: email.trim().toLowerCase(), played });
+    } catch {
+      setError('Impossible de joindre le serveur. Réessaie dans un instant.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className="page center">
-      <form
-        className="card signup"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (valid) onDone({ pseudo: pseudo.trim(), email: email.trim().toLowerCase() });
-        }}
-      >
-        <h1>🏟️ Tour du Monde des Sports</h1>
-        <p className="muted">3 épreuves, 2 minutes, un classement. Bats le rival IA !</p>
-        <label>
-          Pseudo
-          <input value={pseudo} maxLength={24} onChange={(e) => setPseudo(e.target.value)} autoFocus required />
-        </label>
-        <label>
-          Email
-          <input type="email" value={email} maxLength={254} onChange={(e) => setEmail(e.target.value)} required />
-        </label>
-        <label className="check">
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-          <span>J’accepte que mon pseudo, mon email et mon score soient enregistrés pour le classement de l’événement.</span>
-        </label>
-        <button className="primary" disabled={!valid}>
-          C’est parti !
+    <div className="screen">
+      <Header>
+        <button className="px-btn" onClick={openLeaderboardWindow}>
+          CLASSEMENT
         </button>
-        <p className="muted small">Seul ton pseudo apparaît dans le classement public.</p>
-      </form>
+      </Header>
+      <main className="wrap narrow">
+        <section className="hero">
+          <p className="kicker gold">4 ZONES · 12 ÉPREUVES · 1 CHAMPION</p>
+          <h1 className="title-xl">
+            TOUR DU MONDE
+            <br />
+            DES SPORTS
+          </h1>
+          <p className="vt lead">Choisis un continent, enchaîne 3 épreuves — figures, ballon, course — et bats le rival !</p>
+        </section>
+        <form className="panel form" onSubmit={submit}>
+          <label>
+            <span className="lbl">PSEUDO</span>
+            <input value={pseudo} maxLength={24} onChange={(e) => setPseudo(e.target.value)} autoFocus required autoComplete="off" />
+          </label>
+          <label>
+            <span className="lbl">EMAIL</span>
+            <input type="email" value={email} maxLength={254} onChange={(e) => setEmail(e.target.value)} required autoComplete="off" />
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+            <span>J’accepte que mon pseudo, mon email et mon score soient enregistrés pour le classement de l’événement. Seul le pseudo est affiché.</span>
+          </label>
+          {error && <p className="error">{error}</p>}
+          <button className="px-btn big accent" disabled={!valid || busy}>
+            <Sprite name="play" h={16} /> {busy ? '…' : 'JOUER'}
+          </button>
+        </form>
+      </main>
     </div>
   );
 }
 
-function Final({ player, zone, results, onHome, onNext }: { player: Player; zone: Zone; results: ActivityResult[]; onHome: () => void; onNext: () => void }) {
+function ZoneSelect({ player, onStart, onPlayed, onQuit }: { player: Player; onStart: (z: Zone) => void; onPlayed: (p: string[]) => void; onQuit: () => void }) {
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const triesLeft = MAX_TRIES - player.played.length;
+
+  const choose = async (z: Zone) => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await startAttempt(player.pseudo, z.id);
+      onStart(z);
+    } catch (e) {
+      if (e instanceof AttemptRefused) {
+        setError('Ce continent n’est plus disponible pour toi. Choisis-en un autre.');
+        playedZones(player.pseudo).then(onPlayed).catch(() => {});
+      } else setError('Impossible de joindre le serveur. Réessaie dans un instant.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="screen">
+      <Header>
+        <span className="chip">{player.pseudo}</span>
+        <span className="chip">
+          ESSAIS {triesLeft}/{MAX_TRIES}
+        </span>
+        <button className="px-btn" onClick={onQuit}>
+          QUITTER
+        </button>
+      </Header>
+      <main className="wrap">
+        <div className="section-head">
+          <div>
+            <span className="kicker gold">SÉLECTION</span>
+            <h2>CHOISIS TON CONTINENT</h2>
+          </div>
+          {player.played.length > 0 && (
+            <p className="vt notice">
+              Re-bonjour {player.pseudo} ! Tu as déjà joué {player.played.map((id) => zoneById(id)?.name).join(', ')}. Choisis un autre continent.
+            </p>
+          )}
+        </div>
+        {error && <p className="error">{error}</p>}
+        <div className="zones">
+          {ZONES.map((z, zi) => {
+            const done = player.played.includes(z.id);
+            return (
+              <article key={z.id} className={'zone-card' + (done ? ' done' : '')} style={{ ['--accent' as string]: z.accent }}>
+                <div className="zone-top">
+                  <h3>{z.name.toUpperCase()}</h3>
+                  <span>ZONE {zi + 1}</span>
+                </div>
+                <ol>
+                  {z.sports.map((s, i) => (
+                    <li key={s.name}>
+                      <span className="num">{i + 1}</span>
+                      <Sprite name={s.flag} h={20} />
+                      <div>
+                        <span className="kicker">{MODE_LABEL[MODES[i]]}</span>
+                        <span className="sport">{s.name}</span>
+                        <span className="country">{s.country}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+                <button className="px-btn big accent" disabled={done || busy} onClick={() => choose(z)}>
+                  {done ? 'DÉJÀ JOUÉ' : (
+                    <>
+                      <Sprite name="play" h={14} /> JOUER
+                    </>
+                  )}
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function Final({ player, zone, results, onDone }: { player: Player; zone: Zone; results: ActivityResult[]; onDone: () => void }) {
   const score = totalScore(results);
   const time = totalTime(results);
   const medals = results.filter((r) => r.won).length;
   const [status, setStatus] = useState<'saving' | 'saved' | 'error'>('saving');
-  const [refresh, setRefresh] = useState(0);
+  const [rank, setRank] = useState<number | null>(null);
   const saved = useRef(false);
 
   useEffect(() => {
-    if (saved.current) return; // évite le double enregistrement (StrictMode)
+    if (saved.current) return; // un seul enregistrement (StrictMode)
     saved.current = true;
     saveScore({
       pseudo: player.pseudo,
@@ -204,73 +323,69 @@ function Final({ player, zone, results, onHome, onNext }: { player: Player; zone
       score,
       total_time: time,
       medals,
-      details: Object.fromEntries(results.map((r, i) => [`activite${i + 1}`, { won: r.won, score: r.score, ...r.stats }])),
+      details: Object.fromEntries(results.map((r, i) => [MODES[i], { won: r.won, score: r.score, ...r.stats }])),
     })
-      .then(() => setStatus('saved'))
-      .catch(() => setStatus('error'))
-      .finally(() => setRefresh((n) => n + 1));
-    // un seul enregistrement par fin de parcours
+      .then(async () => {
+        setStatus('saved');
+        const rows = await leaderboard(1000);
+        const i = rows.findIndex((r) => r.pseudo.toLowerCase() === player.pseudo.toLowerCase());
+        if (i >= 0) setRank(i + 1);
+      })
+      .catch(() => setStatus('error'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const left = MAX_TRIES - player.played.length;
   return (
-    <div className="page center" style={{ ['--accent' as string]: zone.accent }}>
-      <div className="card result">
-        <div className="banner">🏁 ARRIVÉE</div>
-        <h2>
-          {zone.emoji} {zone.name} — {medals}/3 🏅
-        </h2>
-        <p className="score-big">{score} pts</p>
-        <p className="stat">⏱ Chrono jeux 2 + 3 : {time != null ? `${time.toFixed(1)} s` : '—'}</p>
-        <ul className="recap">
-          {results.map((r, i) => (
-            <li key={i}>
-              {r.won ? '🏅' : '❌'} {zone.sports[i].emoji} {zone.sports[i].name} : {r.details}
-            </li>
-          ))}
-        </ul>
-        <p className="muted small">
-          {status === 'saving' && 'Enregistrement du score…'}
-          {status === 'saved' && `Score enregistré${storageMode === 'local' ? ' (local)' : ''} ✔`}
-          {status === 'error' && '⚠️ Le score n’a pas pu être enregistré.'}
-        </p>
-        <Leaderboard refresh={refresh} highlight={player.pseudo} />
-        <div className="actions">
-          <button className="primary" onClick={onNext} autoFocus>
-            Joueur suivant
-          </button>
-          <button onClick={onHome}>Autre zone</button>
+    <div className="screen" style={{ ['--accent' as string]: zone.accent }}>
+      <Header>
+        <MedalCounter value={medals} total={3} />
+      </Header>
+      <main className="wrap narrow">
+        <div className="finish-banner">
+          <Sprite name="flame" h={40} />
+          <h1>ARRIVÉE</h1>
+          <Sprite name="flame" h={40} />
         </div>
-      </div>
+        <section className="panel result-panel">
+          <div className="stats">
+            <Stat label="SCORE TOTAL" value={String(score).padStart(4, '0')} gold />
+            <Stat label="CHRONO JEUX 2+3" value={time != null ? `${time.toFixed(1)} s` : '—'} />
+            <Stat label="MÉDAILLES" value={`${medals}/3`} />
+            <Stat label="CLASSEMENT" value={rank ? `${rank}e` : '…'} />
+          </div>
+          <h2 className="kicker gold">PARCOURS {zone.name.toUpperCase()}</h2>
+          <ol className="recap">
+            {results.map((r, i) => (
+              <li key={i}>
+                <span className="num">{i + 1}</span>
+                <Sprite name={zone.sports[i].flag} h={20} />
+                <div className="grow">
+                  <span className="kicker">{MODE_LABEL[MODES[i]]}</span>
+                  <span className="sport">{zone.sports[i].name}</span>
+                  <span className="country">{r.details}</span>
+                </div>
+                <strong>+{r.score}</strong>
+                <Sprite name={medalOf(r)} h={36} />
+              </li>
+            ))}
+          </ol>
+          <p className="vt small">
+            {status === 'saving' && 'Enregistrement du score…'}
+            {status === 'saved' && `Score enregistré${storageMode === 'local' ? ' (mode local)' : ''}. `}
+            {status === 'error' && '⚠ Le score n’a pas pu être enregistré. Préviens l’équipe sur le stand.'}
+            {status === 'saved' && (left > 0 ? `Il te reste ${left} essai${left > 1 ? 's' : ''} aujourd’hui, sur un autre continent.` : 'Tu as utilisé tous tes essais du jour.')}
+          </p>
+          <div className="actions">
+            <EnterButton className="px-btn big accent" onClick={onDone}>
+              <Sprite name="next" h={16} /> TERMINER
+            </EnterButton>
+            <button className="px-btn" onClick={openLeaderboardWindow}>
+              CLASSEMENT
+            </button>
+          </div>
+        </section>
+      </main>
     </div>
-  );
-}
-
-function Leaderboard({ refresh = 0, highlight }: { refresh?: number; highlight?: string }) {
-  const [rows, setRows] = useState<LeaderRow[] | null>(null);
-  useEffect(() => {
-    topScores(10)
-      .then(setRows)
-      .catch(() => setRows([]));
-  }, [refresh]);
-  if (!rows) return null;
-  return (
-    <section className="leaderboard">
-      <h3>🏆 Classement {rows[0] && <span className="muted">— score à battre : {rows[0].score} pts</span>}</h3>
-      {rows.length === 0 ? (
-        <p className="muted">Aucun score pour l’instant. Sois le premier !</p>
-      ) : (
-        <ol>
-          {rows.map((r, i) => (
-            <li key={i} className={r.pseudo === highlight ? 'me' : ''}>
-              <span className="rank">{i + 1}</span>
-              <span className="name">{r.pseudo}</span>
-              <span className="muted">{zoneName(r.zone)}</span>
-              <strong>{r.score} pts</strong>
-            </li>
-          ))}
-        </ol>
-      )}
-    </section>
   );
 }

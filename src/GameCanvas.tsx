@@ -1,47 +1,41 @@
-// Canvas de jeu : boucle rAF, clavier, tactile, HUD et boutons de contrôle.
+// Écran d'épreuve : boucle rAF, clavier, tactile, HUD et boutons de contrôle (style 16-bit).
 import { useEffect, useRef, useState } from 'react';
-import { H, HudItem, Input, Key, KEYMAP, Mode, W, ActivityResult, bigText } from './game/engine';
-import type { ModeKind, Sport, Zone } from './game/data';
-import { Runner } from './game/runner';
+import { bigText, C, H, keyFromEvent, W, Input, type ActivityResult, type HudItem, type Key, type Mode } from './game/engine';
+import { MODE_LABEL, type ModeKind, type Sport, type Zone } from './game/data';
+import { Tricks } from './game/tricks';
 import { Chaser } from './game/chaser';
-import { Qte } from './game/qte';
+import { Race } from './game/race';
+import { Header, MedalCounter, Sprite } from './ui';
 
-const CONTROLS: Record<ModeKind, { key: Key; label: string; wide?: boolean }[]> = {
-  runner: [{ key: 'jump', label: 'Sauter ⤒', wide: true }],
-  chaser: [
-    { key: 'left', label: '◀' },
-    { key: 'up', label: '▲' },
-    { key: 'down', label: '▼' },
-    { key: 'right', label: '▶' },
-  ],
-  qte: [
-    { key: 'left', label: '◀' },
-    { key: 'up', label: '▲' },
-    { key: 'down', label: '▼' },
-    { key: 'right', label: '▶' },
-  ],
+const KEYS_HELP: Record<ModeKind, string> = {
+  tricks: 'Clavier : tape les LETTRES affichées, dans l’ordre',
+  chaser: 'Clavier : flèches · ou touche le terrain pour t’y déplacer',
+  race: 'Clavier : alterne ◀ ▶ · saute avec ▲ ou ESPACE',
 };
 
 function makeMode(kind: ModeKind, sport: Sport, accent: string): Mode {
-  if (kind === 'runner') return new Runner(sport, accent);
+  if (kind === 'tricks') return new Tricks(sport, accent);
   if (kind === 'chaser') return new Chaser(sport, accent);
-  return new Qte(sport, accent);
+  return new Race(sport, accent);
 }
 
 interface Props {
   zone: Zone;
   kind: ModeKind;
   sport: Sport;
-  step: number;
+  step: number; // 0..2
+  medals: number;
   onFinish: (r: ActivityResult) => void;
 }
 
-export function GameCanvas({ zone, kind, sport, step, onFinish }: Props) {
+export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useRef(new Input());
   const modeRef = useRef<Mode | null>(null);
+  const finishRef = useRef(onFinish);
+  finishRef.current = onFinish;
   const [hud, setHud] = useState<HudItem[]>([]);
-  const [runId, setRunId] = useState(0);
+  const [letters, setLetters] = useState<string[]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -51,10 +45,10 @@ export function GameCanvas({ zone, kind, sport, step, onFinish }: Props) {
     const mode = makeMode(kind, sport, zone.accent);
     modeRef.current = mode;
 
-    let countdown = 3; // décompte avant départ
-    let endTimer = -1; // pause sur "Gagné / Perdu" avant l'écran de résultat
+    let countdown = 3;
+    let endTimer = -1;
     let last = performance.now();
-    let hudAcc = 0;
+    let hudAcc = 1;
     let raf = 0;
 
     const loop = (now: number) => {
@@ -66,40 +60,40 @@ export function GameCanvas({ zone, kind, sport, step, onFinish }: Props) {
       } else if (!mode.result) mode.update(dt, input);
 
       mode.draw(ctx);
-      if (countdown > 0) bigText(ctx, String(Math.ceil(countdown)));
+      if (countdown > 0) bigText(ctx, String(Math.ceil(countdown)), C.gold);
       else if (countdown > -0.6) {
         countdown -= dt;
-        bigText(ctx, 'Partez !', zone.accent);
+        bigText(ctx, 'PARTEZ !', zone.accent);
       }
-
       if (mode.result) {
         if (endTimer < 0) endTimer = 1.4;
-        bigText(ctx, mode.result.won ? 'Gagné !' : 'Perdu...', mode.result.won ? '#3ccf6e' : '#e05050');
+        bigText(ctx, mode.result.won ? 'GAGNÉ !' : 'PERDU...', mode.result.won ? C.ok : C.alert);
         endTimer -= dt;
         if (endTimer <= 0) {
-          onFinish(mode.result);
+          finishRef.current(mode.result);
           return;
         }
       }
-
       hudAcc += dt;
       if (hudAcc > 0.1) {
         hudAcc = 0;
         setHud(mode.hud());
+        setLetters(mode.touchLetters?.() ?? []);
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
 
     const kd = (e: KeyboardEvent) => {
-      const k = KEYMAP[e.key];
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = keyFromEvent(e);
       if (k) {
         e.preventDefault();
         if (!e.repeat) input.down(k);
       }
     };
     const ku = (e: KeyboardEvent) => {
-      const k = KEYMAP[e.key];
+      const k = keyFromEvent(e);
       if (k) input.up(k);
     };
     window.addEventListener('keydown', kd);
@@ -109,17 +103,15 @@ export function GameCanvas({ zone, kind, sport, step, onFinish }: Props) {
       window.removeEventListener('keydown', kd);
       window.removeEventListener('keyup', ku);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, sport, zone, runId]);
+  }, [kind, sport, zone]);
 
   const onPointer = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * W;
-    const y = ((e.clientY - rect.top) / rect.height) * H;
-    modeRef.current?.tap?.(x, y, inputRef.current);
+    modeRef.current?.tap?.(((e.clientX - rect.left) / rect.width) * W, ((e.clientY - rect.top) / rect.height) * H, inputRef.current);
   };
 
-  const btn = (k: Key) => ({
+  /** Bouton maintenu (déplacements du ballon). */
+  const hold = (k: Key) => ({
     onPointerDown: (e: React.PointerEvent) => {
       e.preventDefault();
       inputRef.current.down(k);
@@ -128,42 +120,89 @@ export function GameCanvas({ zone, kind, sport, step, onFinish }: Props) {
     onPointerLeave: () => inputRef.current.up(k),
     onPointerCancel: () => inputRef.current.up(k),
   });
+  /** Bouton à appui unique (course, lettres). */
+  const tap = (k: Key) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      e.preventDefault();
+      inputRef.current.tap(k);
+    },
+  });
 
   return (
-    <div className="game" style={{ ['--accent' as string]: zone.accent }}>
-      <div className="game-top">
-        <div className="game-title">
-          <span className="step">Étape {step}/3</span>
-          <strong>
-            {sport.emoji} {sport.name}
-          </strong>
-          <span className="muted">
-            {sport.flag} {sport.country}
-          </span>
+    <div className="screen" style={{ ['--accent' as string]: zone.accent }}>
+      <Header>
+        <span className="chip accent">{zone.name.toUpperCase()}</span>
+        <div className="steps">
+          <span className="lbl">ÉTAPE {step + 1}/3</span>
+          {[0, 1, 2].map((i) => (
+            <span key={i} className={'step-dot' + (i <= step ? ' on' : '')}>
+              {i + 1}
+            </span>
+          ))}
         </div>
-        <div className="hud">
-          {hud.map((h) => (
-            <div key={h.label} className="hud-item">
-              <span>{h.label}</span>
-              <strong>{h.value}</strong>
+        <MedalCounter value={medals} total={3} />
+      </Header>
+      <main className="wrap game">
+        <div className="game-head">
+          <div className="title">
+            <Sprite name={sport.flag} h={40} className="flag" />
+            <div>
+              <span className="kicker">{MODE_LABEL[kind]}</span>
+              <h1>{sport.name.toUpperCase()}</h1>
+              <span className="country">{sport.country}</span>
             </div>
-          ))}
+          </div>
+          <div className="hud">
+            {hud.map((h) => (
+              <div key={h.label} className="hud-item">
+                <span className="lbl">{h.label}</span>
+                <strong>{h.value}</strong>
+                {h.progress != null && (
+                  <div className="bar">
+                    <div style={{ width: `${Math.round(h.progress * 100)}%`, background: h.color ?? 'var(--accent)' }} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-      <canvas ref={canvasRef} width={W} height={H} onPointerDown={onPointer} />
-      <div className="game-bottom">
-        <p className="rule">{sport.rule}</p>
+        <div className="screen-frame">
+          <div className="crt">
+            <canvas ref={canvasRef} width={W} height={H} onPointerDown={onPointer} />
+            <div className="scanlines" aria-hidden="true" />
+          </div>
+        </div>
+        <div className="rule-box">
+          <span className="chip accent">RÈGLE</span>
+          <p>{sport.rule}</p>
+        </div>
         <div className="controls">
-          {CONTROLS[kind].map((c) => (
-            <button key={c.key} className={c.wide ? 'ctl wide' : 'ctl'} {...btn(c.key)}>
-              {c.label}
-            </button>
-          ))}
-          <button className="ctl reset" title="Recommencer l'épreuve" onClick={() => setRunId((n) => n + 1)}>
-            ↺
-          </button>
+          <div className="pad">
+            {kind === 'race' && (
+              <>
+                <button className="px-btn big" {...tap('left')} aria-label="Gauche">◀</button>
+                <button className="px-btn big" {...tap('right')} aria-label="Droite">▶</button>
+                <button className="px-btn big accent" {...tap('jump')}>
+                  <Sprite name="jump" h={18} /> SAUTER
+                </button>
+              </>
+            )}
+            {kind === 'chaser' &&
+              (['left', 'up', 'down', 'right'] as const).map((k) => (
+                <button key={k} className="px-btn big" {...hold(k)} aria-label={k}>
+                  {{ left: '◀', up: '▲', down: '▼', right: '▶' }[k]}
+                </button>
+              ))}
+            {kind === 'tricks' &&
+              (letters.length ? letters : ['·', '·', '·', '·', '·', '·']).map((l, i) => (
+                <button key={i + l} className="px-btn letter" disabled={l === '·'} {...(l !== '·' ? tap(l) : {})}>
+                  {l.toUpperCase()}
+                </button>
+              ))}
+          </div>
+          <span className="help">{KEYS_HELP[kind]}</span>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
