@@ -4,7 +4,7 @@
 // Chaque touche a un temps limité (cadre qui se resserre). Réussite = creux plus court, raté = creux plus long.
 import { C, clamp, H, pixelText, steppedSky, W, type ActivityResult, type HudItem, type Input, type Mode } from './engine';
 import type { Sport } from './data';
-import { drawSprite } from '../sprites';
+import { drawScene, drawSprite, fitHeight } from '../sprites';
 import { sfx } from '../sound';
 
 export const TRICKS_LIMIT = 60;
@@ -231,24 +231,32 @@ export class Tricks implements Mode {
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    steppedSky(ctx, GROUND);
-    ctx.fillStyle = C.night3;
-    for (let i = 0; i < 8; i++) {
-      const x = ((i * 140 - this.scroll * 0.25) % (W + 140) + W + 140) % (W + 140) - 70;
-      ctx.fillRect(x, GROUND - 60, 100, 60);
-      ctx.fillRect(x + 20, GROUND - 84, 60, 24);
+    if (this.sport.scene) {
+      // décor du continent (design) + traits de sol qui défilent
+      drawScene(ctx, this.sport.scene);
+      ctx.fillStyle = 'rgba(10,10,26,.18)';
+      for (let x = -(this.scroll % 48); x < W; x += 48) ctx.fillRect(x, GROUND + 28, 24, 8);
+    } else {
+      steppedSky(ctx, GROUND);
+      ctx.fillStyle = C.night3;
+      for (let i = 0; i < 8; i++) {
+        const x = ((i * 140 - this.scroll * 0.25) % (W + 140) + W + 140) % (W + 140) - 70;
+        ctx.fillRect(x, GROUND - 60, 100, 60);
+        ctx.fillRect(x + 20, GROUND - 84, 60, 24);
+      }
+      ctx.fillStyle = this.accent;
+      ctx.fillRect(0, GROUND, W, 8);
+      ctx.fillStyle = C.night0;
+      ctx.fillRect(0, GROUND + 8, W, H - GROUND - 8);
+      ctx.fillStyle = C.line;
+      for (let x = -(this.scroll % 48); x < W; x += 48) ctx.fillRect(x, GROUND + 28, 24, 8);
     }
-    ctx.fillStyle = this.accent;
-    ctx.fillRect(0, GROUND, W, 8);
-    ctx.fillStyle = C.night0;
-    ctx.fillRect(0, GROUND + 8, W, H - GROUND - 8);
-    ctx.fillStyle = C.line;
-    for (let x = -(this.scroll % 48); x < W; x += 48) ctx.fillRect(x, GROUND + 28, 24, 8);
 
     // obstacle / requin qui arrive pendant le creux
     if (this.phase === 'lull' && this.t < TRICKS_LIMIT - 0.5) {
       const q = this.left / Math.max(this.phaseLen, 0.01);
-      drawSprite(ctx, this.sport.hazard ?? 'obstacle', PLAYER_X + 60 + q * (W - PLAYER_X), GROUND, 48);
+      const hz = this.sport.hazard ?? 'obstacle';
+      drawSprite(ctx, hz, PLAYER_X + 60 + q * (W - PLAYER_X), GROUND, fitHeight(hz, 64));
     }
 
     let y = GROUND;
@@ -259,7 +267,8 @@ export class Tricks implements Mode {
       rot = a * Math.PI * 2;
     }
     if (this.stumble > 0) rot = Math.sin(this.stumble * 30) * 0.4;
-    drawSprite(ctx, 'skater', PLAYER_X, y, 96, { rotate: rot });
+    const pl = this.sport.player ?? 'skater';
+    drawSprite(ctx, pl, PLAYER_X, y, fitHeight(pl, 100), { rotate: rot });
 
     const p = clamp(this.left / Math.max(this.phaseLen, 0.01), 0, 1);
     if (this.phase === 'key') {

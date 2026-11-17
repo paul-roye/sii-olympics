@@ -1,6 +1,6 @@
 // Mode "chaser" : vue de dessus, toucher le ballon 8 fois en 30 s.
 import { C, clamp, H, type Input, type Mode, type HudItem, type ActivityResult, rand, W } from './engine';
-import { drawSprite } from '../sprites';
+import { drawScene, drawSprite } from '../sprites';
 import { sfx } from '../sound';
 import type { Sport } from './data';
 
@@ -124,13 +124,15 @@ export class Chaser implements Mode {
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    ctx.fillStyle = C.night0;
-    ctx.fillRect(0, 0, W, H);
-    // terrain en bandes crantées
     const fw = W - 2 * PAD;
-    for (let i = 0; i < 10; i++) {
-      ctx.fillStyle = i % 2 ? C.night2 : C.night3;
-      ctx.fillRect(PAD + Math.floor((i * fw) / 10), PAD, Math.ceil(fw / 10), H - 2 * PAD);
+    if (this.sport.scene) drawScene(ctx, this.sport.scene); // terrain du continent (design)
+    else {
+      ctx.fillStyle = C.night0;
+      ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 10; i++) {
+        ctx.fillStyle = i % 2 ? C.night2 : C.night3;
+        ctx.fillRect(PAD + Math.floor((i * fw) / 10), PAD, Math.ceil(fw / 10), H - 2 * PAD);
+      }
     }
     const line = this.flash > 0 ? C.cream : this.accent;
     ctx.fillStyle = line;
@@ -149,7 +151,7 @@ export class Chaser implements Mode {
       ctx.fillRect(this.target.x - 8, this.target.y - 2, 16, 4);
       ctx.fillRect(this.target.x - 2, this.target.y - 8, 4, 16);
     }
-    drawSprite(ctx, 'ball', this.bx, this.by + BR, BR * 2);
-    drawSprite(ctx, 'playerTop', this.px, this.py + PR, PR * 2);
+    drawSprite(ctx, this.sport.ball ?? 'ball', this.bx, this.by + BR, BR * 2);
+    drawSprite(ctx, this.sport.player ?? 'playerTop', this.px, this.py + PR, PR * 2);
   }
 }

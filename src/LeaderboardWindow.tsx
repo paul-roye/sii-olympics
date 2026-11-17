@@ -11,7 +11,7 @@ export function LeaderboardWindow() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    document.title = 'Classement — Tour du Monde des Sports';
+    document.title = 'Classement — Glob’Challenge';
     let alive = true;
     const load = () =>
       leaderboard(20)

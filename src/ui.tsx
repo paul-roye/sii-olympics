@@ -13,11 +13,7 @@ export function Header({ children }: { children?: ReactNode }) {
     <header className="topbar">
       <div className="brand">
         <Sprite name="logo" h={40} />
-        <span>
-          TOUR DU MONDE
-          <br />
-          DES SPORTS
-        </span>
+        <span>GLOB’CHALLENGE</span>
       </div>
       <div className="topbar-right">
         {children}

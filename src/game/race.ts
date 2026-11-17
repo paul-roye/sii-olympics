@@ -2,7 +2,7 @@
 // Toucher un obstacle fait perdre de la vitesse. Rival IA à vitesse quasi constante.
 import { C, H, pixelText, rand, steppedSky, W, type ActivityResult, type HudItem, type Input, type Mode } from './engine';
 import type { Sport } from './data';
-import { drawSprite } from '../sprites';
+import { drawScene, drawSprite, fitHeight } from '../sprites';
 import { sfx } from '../sound';
 
 export const RACE_M = 600;
@@ -121,25 +121,31 @@ export class Race implements Mode {
   }
 
   draw(ctx: CanvasRenderingContext2D) {
-    steppedSky(ctx, GROUND);
-    if (this.flash > 0) {
-      ctx.fillStyle = `rgba(240,65,74,${this.flash})`;
-      ctx.fillRect(0, 0, W, GROUND);
-    }
     const cam = this.pos;
     const sx = (m: number) => PLAYER_X + (m - cam) * PX_PER_M;
-    // décor
-    ctx.fillStyle = C.night3;
-    for (let i = 0; i < 8; i++) {
-      const x = ((i * 150 - cam * PX_PER_M * 0.3) % (W + 150) + W + 150) % (W + 150) - 75;
-      ctx.fillRect(x, GROUND - 50, 90, 50);
+    if (this.sport.scene) {
+      // décor du continent (design) + traits de sol qui défilent
+      drawScene(ctx, this.sport.scene);
+      ctx.fillStyle = 'rgba(10,10,26,.18)';
+      for (let m = Math.floor((cam - 30) / 5) * 5; m < cam + 80; m += 5) ctx.fillRect(sx(m), GROUND + 28, 16, 8);
+    } else {
+      steppedSky(ctx, GROUND);
+      ctx.fillStyle = C.night3;
+      for (let i = 0; i < 8; i++) {
+        const x = ((i * 150 - cam * PX_PER_M * 0.3) % (W + 150) + W + 150) % (W + 150) - 75;
+        ctx.fillRect(x, GROUND - 50, 90, 50);
+      }
+      ctx.fillStyle = this.accent;
+      ctx.fillRect(0, GROUND, W, 8);
+      ctx.fillStyle = C.night0;
+      ctx.fillRect(0, GROUND + 8, W, H - GROUND - 8);
+      ctx.fillStyle = C.line;
+      for (let m = Math.floor((cam - 30) / 5) * 5; m < cam + 80; m += 5) ctx.fillRect(sx(m), GROUND + 28, 16, 8);
     }
-    ctx.fillStyle = this.accent;
-    ctx.fillRect(0, GROUND, W, 8);
-    ctx.fillStyle = C.night0;
-    ctx.fillRect(0, GROUND + 8, W, H - GROUND - 8);
-    ctx.fillStyle = C.line;
-    for (let m = Math.floor((cam - 30) / 5) * 5; m < cam + 80; m += 5) ctx.fillRect(sx(m), GROUND + 28, 16, 8);
+    if (this.flash > 0) {
+      ctx.fillStyle = `rgba(240,65,74,${this.flash * 0.6})`;
+      ctx.fillRect(0, 0, W, H);
+    }
 
     // ligne d'arrivée en damier
     const fx = sx(RACE_M);
@@ -151,17 +157,18 @@ export class Race implements Mode {
     }
     for (const o of this.obstacles) {
       const x = sx(o.m);
-      if (x > -40 && x < W + 40) drawSprite(ctx, 'obstacle', x, GROUND, 44, { alpha: o.hit ? 0.35 : 1 });
+      const hz = this.sport.hazard ?? 'obstacle';
+      if (x > -40 && x < W + 40) drawSprite(ctx, hz, x, GROUND, fitHeight(hz, 48), { alpha: o.hit ? 0.35 : 1 });
     }
 
     // rival (toujours au sol : il saute sans effort)
     const rx = sx(this.rival);
-    if (rx > -60 && rx < W + 60) drawSprite(ctx, 'rival', rx, GROUND - 2 - Math.abs(Math.sin(this.t * 10)) * 4, 84);
+    if (rx > -60 && rx < W + 60) drawSprite(ctx, this.sport.rival ?? 'rival', rx, GROUND - 2 - Math.abs(Math.sin(this.t * 10)) * 4, 84);
     else pixelText(ctx, rx < 0 ? '◀ RIVAL' : 'RIVAL ▶', rx < 0 ? 16 : W - 16, GROUND - 40, 12, C.alert, rx < 0 ? 'left' : 'right');
 
     // joueur
     const jy = this.air > 0 ? this.height() : Math.abs(Math.sin(this.t * (4 + this.v / 2))) * 4;
-    drawSprite(ctx, 'rider', PLAYER_X, GROUND - jy, 84);
+    drawSprite(ctx, this.sport.player ?? 'rider', PLAYER_X, GROUND - jy, 84);
 
     // jauge de vitesse
     ctx.fillStyle = C.ink;

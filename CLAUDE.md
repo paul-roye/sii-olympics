@@ -1,4 +1,4 @@
-# World Olympics
+# Glob’Challenge
 
 Jeu web. Stack : code sur GitHub, déploiement Vercel, base Supabase.
 
@@ -12,7 +12,8 @@ Jeu web. Stack : code sur GitHub, déploiement Vercel, base Supabase.
 - Schéma Supabase géré par migrations (pas d'édition manuelle en prod).
 
 ## Specs
-Specs détaillées : « Tour du Monde des Sports » (4 zones × 3 activités : runner, chaser, qte).
+Jeu « Glob’Challenge » (ex-« Tour du Monde des Sports ») : 4 continents × 3 épreuves (figures, ballon, course).
+Assets par continent : `src/zoneAssets.ts`, généré depuis les planches Sprites-XX et écrans XX-* de l’artefact design.
 Contraintes event : pseudo + email avant de jouer, score enregistré en fin de parcours, partie ≤ 3 min,
 contre une IA (rival du QTE + score à battre). Plus tard : export CSV, mode 2 joueurs.
 

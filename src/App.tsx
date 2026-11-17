@@ -196,11 +196,7 @@ function Signup({ onDone }: { onDone: (p: Player) => void }) {
       <main className="wrap narrow">
         <section className="hero">
           <p className="kicker gold">4 ZONES · 12 ÉPREUVES · 1 CHAMPION</p>
-          <h1 className="title-xl">
-            TOUR DU MONDE
-            <br />
-            DES SPORTS
-          </h1>
+          <h1 className="title-xl">GLOB’CHALLENGE</h1>
           <p className="vt lead">Choisis un continent, enchaîne 3 épreuves — figures, ballon, course — et bats le rival !</p>
         </section>
         <form className="panel form" onSubmit={submit}>

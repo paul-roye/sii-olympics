@@ -1,5 +1,8 @@
 // Accès aux sprites pixel-art : images pour le canvas, URLs pour le DOM.
-import { SPRITES } from './spriteData';
+import { SPRITES as BASE } from './spriteData';
+import { ZONE_SPRITES } from './zoneAssets';
+
+const SPRITES: Record<string, string> = { ...BASE, ...ZONE_SPRITES };
 
 const urls: Record<string, string> = {};
 const images: Record<string, HTMLImageElement> = {};
@@ -42,4 +45,18 @@ export function drawSprite(ctx: CanvasRenderingContext2D, name: string, cx: numb
   if (opts.flip) ctx.scale(-1, 1);
   ctx.drawImage(img, -w / 2, -h / 2, w, h);
   ctx.restore();
+}
+
+/** Dessine un décor en bandes [x, y, w, h, couleur] (issu du design, canvas 800×450). */
+export function drawScene(ctx: CanvasRenderingContext2D, bands: [number, number, number, number, string][]) {
+  for (const [x, y, w, h, c] of bands) {
+    ctx.fillStyle = c;
+    ctx.fillRect(x, y, w, h);
+  }
+}
+
+/** Hauteur de dessin pour qu'un sprite tienne dans une boîte carrée de `box` px. */
+export function fitHeight(name: string, box: number) {
+  const r = spriteRatio(name);
+  return r > 1 ? box / r : box;
 }

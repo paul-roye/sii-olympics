@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import { LeaderboardWindow } from './LeaderboardWindow';
 import { GamepadTest } from './GamepadTest';
+import { PreviewWall } from './PreviewWall';
 import { preloadSprites } from './sprites';
 import { sfx, unlockAudioOnGesture } from './sound';
 import './styles.css';
@@ -16,4 +17,4 @@ document.addEventListener('click', (e) => {
 });
 const view = new URLSearchParams(location.search).get('view');
 
-createRoot(document.getElementById('root')!).render(<StrictMode>{view === 'classement' ? <LeaderboardWindow /> : view === 'manette' ? <GamepadTest /> : <App />}</StrictMode>);
+createRoot(document.getElementById('root')!).render(<StrictMode>{view === 'classement' ? <LeaderboardWindow /> : view === 'manette' ? <GamepadTest /> : view === 'apercu' ? <PreviewWall /> : <App />}</StrictMode>);
