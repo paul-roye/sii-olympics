@@ -1,6 +1,7 @@
 // Mode "chaser" : vue de dessus, toucher le ballon 8 fois en 30 s.
 import { C, clamp, H, type Input, type Mode, type HudItem, type ActivityResult, rand, W } from './engine';
 import { drawSprite } from '../sprites';
+import { sfx } from '../sound';
 import type { Sport } from './data';
 
 const GOAL = 8;
@@ -90,6 +91,7 @@ export class Chaser implements Mode {
     if (Math.hypot(this.bx - this.px, this.by - this.py) < PR + BR - 2) {
       this.hits++;
       this.flash = 0.25;
+      sfx.kick();
       if (this.hits >= GOAL) return this.finish(true);
       this.respawn();
     }

@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { Input } from './game/engine';
 import { GamepadInput } from './game/gamepad';
+import { sfx } from './sound';
 
 const FOCUSABLE = 'button:not(:disabled), a[href], input:not(:disabled), select, textarea';
 
@@ -17,7 +18,7 @@ export function useGamepadMenu(enabled: boolean) {
       for (const k of input.consume()) {
         if (k === 'jump') {
           const el = document.activeElement as HTMLElement | null;
-          if (el && el !== document.body) el.click();
+          if (el && el !== document.body) el.click(); // le clic joue déjà le son de validation
           else document.querySelector<HTMLElement>(FOCUSABLE)?.focus();
         } else if (k === 'up' || k === 'down' || k === 'left' || k === 'right') {
           const list = [...document.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((e) => e.offsetParent !== null);
@@ -26,6 +27,7 @@ export function useGamepadMenu(enabled: boolean) {
           const dir = k === 'up' || k === 'left' ? -1 : 1;
           const next = list[i < 0 ? 0 : (i + dir + list.length) % list.length];
           next.focus();
+          sfx.move();
           next.scrollIntoView({ block: 'nearest' });
         }
       }

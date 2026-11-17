@@ -1,5 +1,6 @@
 // Petits composants d'interface 16-bit.
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { isMuted, onMuteChange, setMuted } from './sound';
 import { spriteRatio, spriteUrl } from './sprites';
 
 export function Sprite({ name, h, className }: { name: string; h: number; className?: string }) {
@@ -17,8 +18,27 @@ export function Header({ children }: { children?: ReactNode }) {
           DES SPORTS
         </span>
       </div>
-      <div className="topbar-right">{children}</div>
+      <div className="topbar-right">
+        {children}
+        <MuteButton />
+      </div>
     </header>
+  );
+}
+
+/** Couper / remettre le son (mémorisé dans le navigateur). */
+export function MuteButton() {
+  const [muted, setM] = useState(isMuted());
+  useEffect(() => {
+    const off = onMuteChange(setM);
+    return () => {
+      off();
+    };
+  }, []);
+  return (
+    <button className="px-btn sound-btn" onClick={() => setMuted(!muted)} aria-label={muted ? 'Activer le son' : 'Couper le son'} title={muted ? 'Activer le son' : 'Couper le son'}>
+      {muted ? 'SON : NON' : 'SON : OUI'}
+    </button>
   );
 }
 

@@ -5,6 +5,7 @@ import type { ActivityResult } from './game/engine';
 import { GameCanvas } from './GameCanvas';
 import { AttemptRefused, leaderboard, MAX_TRIES, playedZones, saveScore, startAttempt, storageMode } from './scores';
 import { Header, MedalCounter, openLeaderboardWindow, Sprite } from './ui';
+import { sfx } from './sound';
 
 interface Player {
   pseudo: string;
@@ -318,6 +319,7 @@ function Final({ player, zone, results, onDone }: { player: Player; zone: Zone; 
   useEffect(() => {
     if (saved.current) return; // un seul enregistrement (StrictMode)
     saved.current = true;
+    sfx.finish();
     saveScore({
       pseudo: player.pseudo,
       email: player.email,

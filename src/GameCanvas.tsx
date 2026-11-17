@@ -6,6 +6,7 @@ import { Tricks } from './game/tricks';
 import { Chaser } from './game/chaser';
 import { Race } from './game/race';
 import { Header, MedalCounter, Sprite } from './ui';
+import { sfx } from './sound';
 import { BTN_NAMES, GamepadInput, readPad, rumble, SLOT_BUTTONS, SlotMapper } from './game/gamepad';
 
 const KEYS_HELP: Record<ModeKind, string> = {
@@ -54,6 +55,7 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
     modeRef.current = mode;
 
     let countdown = 3;
+    sfx.count();
     let endTimer = -1;
     let last = performance.now();
     let hudAcc = 1;
@@ -68,7 +70,10 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
       pad = gp.poll(input);
       slots.apply(input, mode.touchLetters?.() ?? []);
       if (countdown > 0) {
+        const before = Math.ceil(countdown);
         countdown -= dt;
+        if (countdown <= 0) sfx.go();
+        else if (Math.ceil(countdown) !== before) sfx.count();
         input.consume();
       } else if (!mode.result) mode.update(dt, input);
 
@@ -81,6 +86,8 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
       if (mode.result) {
         if (endTimer < 0) {
           endTimer = 1.4;
+          if (mode.result.won) sfx.win();
+          else sfx.lose();
           rumble(pad, mode.result.won ? 150 : 400, mode.result.won ? 0.3 : 1);
         }
         bigText(ctx, mode.result.won ? 'GAGNÉ !' : 'PERDU...', mode.result.won ? C.ok : C.alert);

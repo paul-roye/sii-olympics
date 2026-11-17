@@ -5,6 +5,7 @@
 import { C, clamp, H, pixelText, steppedSky, W, type ActivityResult, type HudItem, type Input, type Mode } from './engine';
 import type { Sport } from './data';
 import { drawSprite } from '../sprites';
+import { sfx } from '../sound';
 
 export const TRICKS_LIMIT = 60;
 const CHORD_START = 30; // passage aux accords
@@ -100,6 +101,7 @@ export class Tricks implements Mode {
     this.keyWindow = Math.max(KEY_WINDOW_MIN, this.keyWindow - 0.05);
     this.speed = Math.min(420, this.speed + 25);
     this.anim = 0.8;
+    sfx.trick();
     this.feedback = { text: this.word === 'esquive' ? 'ESQUIVÉ !' : 'FIGURE !', color: C.ok, t: 0.8 };
     this.toLull();
   }
@@ -110,6 +112,7 @@ export class Tricks implements Mode {
     this.keyWindow = Math.min(KEY_WINDOW, this.keyWindow + 0.1);
     this.speed = Math.max(140, this.speed - 60);
     this.stumble = 0.7;
+    sfx.miss();
     this.feedback = { text: 'RATÉ !', color: C.alert, t: 0.8 };
     this.toLull();
   }
@@ -160,6 +163,7 @@ export class Tricks implements Mode {
         this.points += 10;
         this.pop = 0.15;
         this.comboPos++;
+        if (this.comboPos < this.comboLen) sfx.key();
         if (this.comboPos >= this.comboLen) return this.succeed(5 * this.comboLen);
         return this.nextKey();
       }

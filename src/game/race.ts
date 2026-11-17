@@ -3,6 +3,7 @@
 import { C, H, pixelText, rand, steppedSky, W, type ActivityResult, type HudItem, type Input, type Mode } from './engine';
 import type { Sport } from './data';
 import { drawSprite } from '../sprites';
+import { sfx } from '../sound';
 
 export const RACE_M = 600;
 const PX_PER_M = 9;
@@ -49,6 +50,7 @@ export class Race implements Mode {
     if (this.air > 0) return;
     this.airTotal = Math.min(1.2, Math.max(0.55, JUMP_DIST / Math.max(this.v, 1)));
     this.air = this.airTotal;
+    sfx.jump();
   }
 
   update(dt: number, input: Input) {
@@ -56,7 +58,10 @@ export class Race implements Mode {
     this.t += dt;
     for (const k of input.consume()) {
       if (k === 'left' || k === 'right') {
-        if (k !== this.lastMash) this.v = Math.min(MAX_V, this.v + BOOST);
+        if (k !== this.lastMash) {
+          this.v = Math.min(MAX_V, this.v + BOOST);
+          sfx.step();
+        }
         this.lastMash = k;
       } else if (k === 'up' || k === 'jump') this.jump();
     }
@@ -78,6 +83,7 @@ export class Race implements Mode {
           this.hits++;
           this.v *= HIT_FACTOR;
           this.flash = 0.35;
+          sfx.hit();
         }
       } else if (dx < -(LEGS_HALF + OBST_HALF)) {
         o.cleared = true;
