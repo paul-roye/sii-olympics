@@ -209,3 +209,15 @@ img.sprite { image-rendering: pixelated; display: block; flex-shrink: 0; }
 /* Bascule clavier / manette */
 .input-btn.pad-ok { background: var(--ok); color: var(--ink); }
 .input-btn.pad-wait { background: var(--gold); color: var(--ink); }
+
+/* Fond « globe » des écrans de menu (design Fond-Accueil) */
+.screen.home-bg {
+  background: var(--night0) url('/bg/accueil.svg') center top / cover no-repeat fixed;
+  image-rendering: pixelated;
+}
+@media (max-width: 800px) {
+  .screen.home-bg { background-image: url('/bg/accueil-mobile.svg'); background-attachment: scroll; }
+}
+.home-bg .topbar { background: rgba(7, 10, 36, 0.85); }
+.home-bg .hero .lead { background: rgba(7, 10, 36, 0.78); padding: 8px 14px; color: var(--cream); }
+.home-bg .section-head > div, .home-bg .notice { background: rgba(7, 10, 36, 0.78); padding: 8px 12px; }

@@ -191,7 +191,7 @@ function Signup({ onDone }: { onDone: (p: Player) => void }) {
   };
 
   return (
-    <div className="screen">
+    <div className="screen home-bg">
       <Header>
         <button className="px-btn" onClick={openLeaderboardWindow}>
           CLASSEMENT
@@ -250,7 +250,7 @@ function ZoneSelect({ player, onStart, onPlayed, onQuit }: { player: Player; onS
   };
 
   return (
-    <div className="screen">
+    <div className="screen home-bg">
       <Header>
         <span className="chip">{player.pseudo}</span>
         <span className="chip">
@@ -344,7 +344,7 @@ function Final({ player, zone, results, onDone }: { player: Player; zone: Zone; 
 
   const left = MAX_TRIES - player.played.length;
   return (
-    <div className="screen" style={{ ['--accent' as string]: zone.accent }}>
+    <div className="screen home-bg" style={{ ['--accent' as string]: zone.accent }}>
       <Header>
         <MedalCounter value={medals} total={3} />
       </Header>

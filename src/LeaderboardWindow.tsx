@@ -33,7 +33,7 @@ export function LeaderboardWindow() {
   }, []);
 
   return (
-    <div className="screen">
+    <div className="screen home-bg">
       <Header>
         <span className="chip accent-gold">CLASSEMENT EN DIRECT</span>
       </Header>
