@@ -35,6 +35,11 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
+/** Contexte audio partagé (sons et musique). */
+export function audioContext(): AudioContext | null {
+  return audio();
+}
+
 /** À appeler une fois : débloque l'audio au premier geste de l'utilisateur. */
 export function unlockAudioOnGesture() {
   if (typeof window === 'undefined') return;

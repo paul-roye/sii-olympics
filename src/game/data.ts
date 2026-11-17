@@ -29,7 +29,7 @@ export interface Zone {
   sports: [Sport, Sport, Sport];
 }
 
-const TRICK_RULE = 'Tape chaque lettre avant que le cadre se referme. Après 30 s : 2 touches EN MÊME TEMPS. Une réussite accélère le rythme, un raté te ralentit.';
+const TRICK_RULE = 'Tape chaque lettre avant que le cadre se referme. Après 25 s : 2 touches EN MÊME TEMPS. Une réussite accélère le rythme, un raté te ralentit.';
 const BALL_RULE = 'Touche le ballon 8 fois en moins de 30 secondes !';
 const RACE_RULE = 'Alterne ◀ ▶ très vite pour accélérer, saute les obstacles avec ▲ ou ESPACE. Bats le rival !';
 
@@ -73,7 +73,7 @@ export const ZONES: Zone[] = [
         name: 'Nage dans le lagon',
         country: 'Polynésie',
         flag: 'flag_pf',
-        rule: 'Tape chaque lettre avant que le cadre se referme pour esquiver les requins. Après 30 s : 2 touches EN MÊME TEMPS.',
+        rule: 'Tape chaque lettre avant que le cadre se referme pour esquiver les requins. Après 25 s : 2 touches EN MÊME TEMPS.',
         trickWord: 'esquive',
         hazard: 'shark',
       },

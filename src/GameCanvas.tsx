@@ -10,12 +10,12 @@ import { sfx } from './sound';
 import { BTN_NAMES, GamepadInput, getInputMode, onInputModeChange, rumble, SLOT_BUTTONS, SlotMapper } from './game/gamepad';
 
 const KEYS_HELP: Record<ModeKind, string> = {
-  tricks: 'Clavier : tape la LETTRE affichée · à partir de 30 s, 2 touches EN MÊME TEMPS',
+  tricks: 'Clavier : tape la LETTRE affichée · à partir de 25 s, 2 touches EN MÊME TEMPS',
   chaser: 'Clavier : flèches · ou touche le terrain pour t’y déplacer',
   race: 'Clavier : alterne ◀ ▶ · saute avec ▲ ou ESPACE',
 };
 const PAD_HELP: Record<ModeKind, string> = {
-  tricks: 'Manette : appuie sur le BOUTON indiqué sous la lettre · après 30 s, 2 boutons ENSEMBLE',
+  tricks: 'Manette : appuie sur le BOUTON indiqué sous la lettre · après 25 s, 2 boutons ENSEMBLE',
   chaser: 'Manette : stick gauche ou croix',
   race: 'Manette : alterne LB / RB (ou LT / RT) · saute avec A',
 };

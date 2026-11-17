@@ -1,14 +1,15 @@
-// Épreuve 1 "figures" : Quick Time Event au clavier (lettres A-Z), 60 s.
-// 0-30 s : combinaisons de 1, 2, 3, 4, 5 puis 6 touches, révélées touche après touche.
-// 30-60 s : séries d'accords de 2 touches à presser EN MÊME TEMPS.
+// Épreuve 1 "figures" : Quick Time Event au clavier (lettres A-Z), 45 s.
+// L'obstacle avance pendant la combinaison et arrive sous le joueur au moment de la figure.
+// 0-25 s : combinaisons de 1, 2, 3, 4, 5 puis 6 touches, révélées touche après touche.
+// 25-45 s : séries d'accords de 2 touches à presser EN MÊME TEMPS.
 // Chaque touche a un temps limité (cadre qui se resserre). Réussite = creux plus court, raté = creux plus long.
 import { C, clamp, H, pixelText, steppedSky, W, type ActivityResult, type HudItem, type Input, type Mode } from './engine';
 import type { Sport } from './data';
 import { drawBackground, drawSprite, fitHeight } from '../sprites';
 import { sfx } from '../sound';
 
-export const TRICKS_LIMIT = 60;
-const CHORD_START = 30; // passage aux accords
+export const TRICKS_LIMIT = 45;
+const CHORD_START = 25; // passage aux accords
 const COMBO_LENGTHS = [1, 2, 3, 4, 5, 6];
 const LULL_START = 0.8; // creux entre deux combinaisons
 const LULL_MIN = 0.35;
@@ -16,7 +17,7 @@ const LULL_MAX = 1.6;
 const KEY_WINDOW = 1.5; // temps pour une touche (diminue avec les réussites)
 const KEY_WINDOW_MIN = 0.9;
 const CHORD_WINDOW = 2.0;
-const GOAL = 18; // figures à réussir pour la médaille
+const GOAL = 14; // figures à réussir pour la médaille
 const GROUND = H - 90;
 const PLAYER_X = 220;
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz';
@@ -52,6 +53,8 @@ export class Tricks implements Mode {
   private speed = 220;
   private anim = 0;
   private stumble = 0;
+  /** Obstacle qui passe sous la figure (réussite) ou percute le joueur (raté). */
+  private passing: { from: number; t: number; crash: boolean } | null = null;
   private pop = 0; // petit effet quand une touche est validée
   private feedback: { text: string; color: string; t: number } | null = null;
   private decoys: string[] = [];
@@ -94,7 +97,16 @@ export class Tricks implements Mode {
     }
   }
 
+  /** Position de l'obstacle qui approche : arrive au joueur à la fin du temps de la combinaison. */
+  private hazardX(): number | null {
+    if (this.phase === 'lull') return null;
+    const p = clamp(this.left / Math.max(this.phaseLen, 0.01), 0, 1);
+    const r = this.phase === 'chord' ? p : (this.comboLen - this.comboPos - 1 + p) / this.comboLen;
+    return PLAYER_X + 70 + r * (W + 40 - PLAYER_X - 70);
+  }
+
   private succeed(bonus: number) {
+    this.passing = { from: this.hazardX() ?? W, t: 0, crash: false };
     this.success++;
     this.points += bonus;
     this.lull = Math.max(LULL_MIN, this.lull - 0.1);
@@ -107,6 +119,7 @@ export class Tricks implements Mode {
   }
 
   private fail() {
+    this.passing = { from: this.hazardX() ?? W, t: 0, crash: true };
     this.fails++;
     this.lull = Math.min(LULL_MAX, this.lull + 0.3);
     this.keyWindow = Math.min(KEY_WINDOW, this.keyWindow + 0.1);
@@ -140,6 +153,7 @@ export class Tricks implements Mode {
     this.scroll += this.speed * dt;
     this.anim = Math.max(0, this.anim - dt);
     this.stumble = Math.max(0, this.stumble - dt);
+    if (this.passing && (this.passing.t += dt) > 1) this.passing = null;
     this.pop = Math.max(0, this.pop - dt);
     if (this.feedback && (this.feedback.t -= dt) <= 0) this.feedback = null;
     const presses = input.consume().filter((k) => k.length === 1);
@@ -251,11 +265,21 @@ export class Tricks implements Mode {
       for (let x = -(this.scroll % 48); x < W; x += 48) ctx.fillRect(x, GROUND + 28, 24, 8);
     }
 
-    // obstacle / requin qui arrive pendant le creux
-    if (this.phase === 'lull' && this.t < TRICKS_LIMIT - 0.5) {
-      const q = this.left / Math.max(this.phaseLen, 0.01);
-      const hz = this.sport.hazard ?? 'obstacle';
-      drawSprite(ctx, hz, PLAYER_X + 60 + q * (W - PLAYER_X), GROUND, fitHeight(hz, 64));
+    // obstacle qui approche pendant la combinaison, puis passe sous la figure (ou percute en cas de raté)
+    const hz = this.sport.hazard ?? 'obstacle';
+    const hh = fitHeight(hz, 64);
+    const hx = this.hazardX();
+    if (hx !== null) drawSprite(ctx, hz, hx, GROUND, hh);
+    if (this.passing) {
+      const { from, t, crash } = this.passing;
+      if (crash) {
+        const x = from + (PLAYER_X + 36 - from) * Math.min(1, t / 0.2);
+        drawSprite(ctx, hz, x, GROUND, hh, { alpha: t > 0.7 ? Math.max(0, 1 - (t - 0.7) / 0.3) : 1 });
+      } else {
+        // apex de la figure (mi-animation) pile au-dessus de l'obstacle
+        const x = from + (PLAYER_X - from) * (t / 0.4);
+        drawSprite(ctx, hz, x, GROUND, hh);
+      }
     }
 
     let y = GROUND;

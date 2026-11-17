@@ -1,6 +1,7 @@
 // Petits composants d'interface 16-bit.
 import { useEffect, useState, type ReactNode } from 'react';
 import { isMuted, onMuteChange, setMuted } from './sound';
+import { isMusicOn, onMusicChange, setMusicOn } from './music';
 import { getInputMode, onInputModeChange, readPads, setInputMode, type InputMode } from './game/gamepad';
 import { spriteRatio, spriteUrl } from './sprites';
 
@@ -18,6 +19,7 @@ export function Header({ children }: { children?: ReactNode }) {
       <div className="topbar-right">
         {children}
         <InputModeButton />
+        <MusicButton />
         <MuteButton />
       </div>
     </header>
@@ -50,6 +52,17 @@ export function InputModeButton() {
       title={pad ? (seen ? 'Manette détectée — cliquer pour passer au clavier' : 'Appuie sur un bouton de la manette pour la réveiller') : 'Passer en mode manette'}
     >
       {pad ? (seen ? 'MANETTE ✓' : 'MANETTE : APPUIE SUR A') : 'CLAVIER'}
+    </button>
+  );
+}
+
+/** Musique 8-bit on/off (mémorisée). */
+export function MusicButton() {
+  const [on, setOn] = useState(isMusicOn());
+  useEffect(() => onMusicChange(setOn), []);
+  return (
+    <button className="px-btn sound-btn" onClick={() => setMusicOn(!on)} aria-label={on ? 'Couper la musique' : 'Activer la musique'}>
+      {on ? 'MUSIQUE : OUI' : 'MUSIQUE : NON'}
     </button>
   );
 }

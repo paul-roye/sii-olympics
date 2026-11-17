@@ -6,6 +6,7 @@ import { GameCanvas } from './GameCanvas';
 import { AttemptRefused, leaderboard, MAX_TRIES, playedZones, saveScore, startAttempt, storageMode } from './scores';
 import { Header, MedalCounter, openLeaderboardWindow, Sprite } from './ui';
 import { sfx } from './sound';
+import { playMusic } from './music';
 
 interface Player {
   pseudo: string;
@@ -34,6 +35,9 @@ export default function App() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'signup' });
   useGamepadMenu(screen.name !== 'play');
+  // musique : thème du continent pendant le parcours, thème d'accueil ailleurs
+  const theme = screen.name === 'play' || screen.name === 'result' ? screen.zone.id : 'menu';
+  useEffect(() => playMusic(theme), [theme]);
 
   const reset = () => {
     setPlayer(null);

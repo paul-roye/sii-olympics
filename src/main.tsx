@@ -6,10 +6,12 @@ import { GamepadTest } from './GamepadTest';
 import { PreviewWall } from './PreviewWall';
 import { preloadSprites } from './sprites';
 import { sfx, unlockAudioOnGesture } from './sound';
+import { resumeMusicOnGesture } from './music';
 import './styles.css';
 
 preloadSprites();
 unlockAudioOnGesture();
+resumeMusicOnGesture();
 // son de validation sur tous les boutons pixel (souris, tactile, manette, Entrée)
 document.addEventListener('click', (e) => {
   const b = (e.target as HTMLElement | null)?.closest('.px-btn');
