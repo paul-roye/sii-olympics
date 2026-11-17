@@ -67,13 +67,25 @@ export function logicalKeys(p: Gamepad): Set<Key> {
 export class GamepadInput {
   private prev = new Set<Key>();
 
+  /** Ignore les boutons déjà enfoncés (ex. A encore tenu en arrivant sur un nouvel écran). */
+  prime() {
+    const p = readPad();
+    this.prev = p ? logicalKeys(p) : new Set<Key>();
+    this.ignore = new Set(this.prev);
+  }
+  private ignore = new Set<Key>();
+
   /** À appeler une fois par frame. Renvoie la manette lue (ou null). */
   poll(input: Input): Gamepad | null {
     const p = readPad();
     const now = p ? logicalKeys(p) : new Set<Key>();
-    for (const k of now) if (!this.prev.has(k)) input.down(k);
-    for (const k of this.prev) if (!now.has(k)) input.up(k);
+    // un bouton ignoré redevient actif une fois relâché
+    for (const k of this.ignore) if (!now.has(k)) this.ignore.delete(k);
+    for (const k of now) if (!this.prev.has(k) && !this.ignore.has(k)) input.down(k);
+    for (const k of this.prev) if (!now.has(k) && !this.ignore.has(k)) input.up(k);
     this.prev = now;
+    const [ax = 0, ay = 0] = p?.axes ?? [];
+    input.analog = Math.hypot(ax, ay) > DEADZONE ? { x: ax, y: ay } : null;
     return p;
   }
 }

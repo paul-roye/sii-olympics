@@ -10,6 +10,8 @@ export type Key = 'up' | 'down' | 'left' | 'right' | 'jump' | string;
 export class Input {
   held = new Set<Key>();
   pressed: Key[] = []; // appuis non encore consommés
+  /** Direction analogique du stick gauche (null si au repos ou pas de manette). */
+  analog: { x: number; y: number } | null = null;
 
   down(k: Key) {
     if (!this.held.has(k)) this.pressed.push(k);
@@ -73,6 +75,8 @@ export interface Mode {
   tap?(x: number, y: number, input: Input): void;
   /** Lettres à proposer en boutons tactiles (épreuve figures). */
   touchLetters?(): string[];
+  /** Texte affiché pour une lettre (ex. nom du bouton de manette), null = la lettre. */
+  setLabeler?(f: ((letter: string) => string) | null): void;
 }
 
 export const rand = (a: number, b: number) => a + Math.random() * (b - a);

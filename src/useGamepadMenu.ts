@@ -12,10 +12,19 @@ export function useGamepadMenu(enabled: boolean) {
     if (!enabled) return;
     const input = new Input();
     const gp = new GamepadInput();
+    gp.prime();
     let raf = 0;
     const loop = () => {
       gp.poll(input);
       for (const k of input.consume()) {
+        const active = document.activeElement as HTMLElement | null;
+        if (!active || active === document.body) {
+          // rien de sélectionné : on se place sur l'action principale, sans la déclencher
+          const primary = document.querySelector<HTMLElement>('.px-btn.accent:not(:disabled)') ?? document.querySelector<HTMLElement>(FOCUSABLE);
+          primary?.focus();
+          sfx.move();
+          continue;
+        }
         if (k === 'jump') {
           const el = document.activeElement as HTMLElement | null;
           if (el && el !== document.body) el.click(); // le clic joue déjà le son de validation

@@ -62,6 +62,11 @@ export class Chaser implements Mode {
     if (input.held.has('right')) dx += 1;
     if (input.held.has('up')) dy -= 1;
     if (input.held.has('down')) dy += 1;
+    if (input.analog) {
+      // stick analogique : direction libre (pas seulement 8 directions)
+      dx = input.analog.x;
+      dy = input.analog.y;
+    }
     if (dx || dy) this.target = null;
     else if (this.target) {
       const tx = this.target.x - this.px;

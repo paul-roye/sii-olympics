@@ -138,20 +138,22 @@ function EnterButton({ onClick, className, children }: { onClick: () => void; cl
   const ref = useRef(onClick);
   ref.current = onClick;
   useEffect(() => {
+    const born = performance.now();
+    let done = false;
+    // Entrée = un seul déclenchement (on annule l'activation native du bouton qui a le focus),
+    // ignorée pendant 400 ms pour qu'une touche encore enfoncée ne valide pas tout de suite.
     const h = (e: KeyboardEvent) => {
-      if (e.key !== 'Enter' || e.repeat) return;
-      window.removeEventListener('keydown', h);
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (done || e.repeat || performance.now() - born < 400) return;
+      done = true;
       ref.current();
     };
-    // délai : évite qu'une touche encore enfoncée valide tout de suite
-    const t = setTimeout(() => window.addEventListener('keydown', h), 400);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener('keydown', h);
-    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
   }, []);
   return (
-    <button className={className} onClick={onClick}>
+    <button className={className} onClick={onClick} autoFocus>
       {children}
     </button>
   );
@@ -228,6 +230,7 @@ function ZoneSelect({ player, onStart, onPlayed, onQuit }: { player: Player; onS
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const triesLeft = MAX_TRIES - player.played.length;
+  const firstFree = ZONES.find((z) => !player.played.includes(z.id))?.id;
 
   const choose = async (z: Zone) => {
     if (busy) return;
@@ -292,7 +295,7 @@ function ZoneSelect({ player, onStart, onPlayed, onQuit }: { player: Player; onS
                     </li>
                   ))}
                 </ol>
-                <button className="px-btn big accent" disabled={done || busy} onClick={() => choose(z)}>
+                <button className="px-btn big accent" disabled={done || busy} onClick={() => choose(z)} autoFocus={z.id === firstFree}>
                   {done ? 'DÉJÀ JOUÉ' : (
                     <>
                       <Sprite name="play" h={14} /> JOUER

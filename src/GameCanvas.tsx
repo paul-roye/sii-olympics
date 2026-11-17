@@ -61,6 +61,7 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
     let hudAcc = 1;
     let raf = 0;
     const gp = new GamepadInput();
+    gp.prime();
     const slots = new SlotMapper();
     let pad: Gamepad | null = null;
 
@@ -68,7 +69,10 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       pad = gp.poll(input);
-      slots.apply(input, mode.touchLetters?.() ?? []);
+      const shown = mode.touchLetters?.() ?? [];
+      slots.apply(input, shown);
+      // manette branchée : l'épreuve figures affiche le bouton à presser plutôt que la lettre
+      mode.setLabeler?.(pad ? (l) => SLOT_LABELS[shown.indexOf(l)] ?? l.toUpperCase() : null);
       if (countdown > 0) {
         const before = Math.ceil(countdown);
         countdown -= dt;

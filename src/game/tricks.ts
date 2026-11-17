@@ -125,6 +125,11 @@ export class Tricks implements Mode {
     this.decoys = [];
   }
 
+  private labeler: ((l: string) => string) | null = null;
+  setLabeler(f: ((l: string) => string) | null) {
+    this.labeler = f;
+  }
+
   touchLetters() {
     return this.phase === 'lull' ? [] : this.decoys;
   }
@@ -221,7 +226,8 @@ export class Tricks implements Mode {
     ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
     ctx.fillStyle = 'rgba(0,0,0,.18)';
     ctx.fillRect(cx - size / 2, cy + size / 2 - 8, size, 8);
-    pixelText(ctx, letter.toUpperCase(), cx, cy - 2, 32, C.ink);
+    const label = this.labeler ? this.labeler(letter) : letter.toUpperCase();
+    pixelText(ctx, label, cx, cy - 2, label.length > 1 ? 22 : 32, C.ink);
   }
 
   draw(ctx: CanvasRenderingContext2D) {
