@@ -22,4 +22,7 @@ contre une IA (rival du QTE + score à battre). Plus tard : export CSV, mode 2 j
 - `src/scores.ts` : Supabase si `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY`, sinon localStorage.
 - `supabase/migrations/` : table `scores` ; anon peut insérer, et lire tout sauf l'email.
 - Score total = somme des points des 3 activités ; départage par chrono jeux 2 + 3.
+- `src/game/gamepad.ts` : manette (Gamepad API, mapping standard Xbox) → touches logiques de `Input`. Croix/stick G = directions, A = saut, LB/LT ◀ RB/RT ▶ (course), A/B/X/Y/LB/RB = 6 lettres proposées en « figures » (`SlotMapper`).
+- `src/useGamepadMenu.ts` : navigation des menus à la manette (croix = focus, A = clic), coupée pendant une épreuve.
+- `?view=manette` : page de diagnostic manette (`src/GamepadTest.tsx`).
 - `src/styles.css` : thème provisoire, en attente du design final.

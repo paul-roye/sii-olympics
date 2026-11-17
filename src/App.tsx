@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useGamepadMenu } from './useGamepadMenu';
 import { MODE_LABEL, MODES, ZONES, zoneById, type Zone } from './game/data';
 import type { ActivityResult } from './game/engine';
 import { GameCanvas } from './GameCanvas';
@@ -31,6 +32,7 @@ const medalOf = (r?: ActivityResult) => (r ? (r.won ? 'gold' : 'medalEmpty') : '
 export default function App() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [screen, setScreen] = useState<Screen>({ name: 'signup' });
+  useGamepadMenu(screen.name !== 'play');
 
   const reset = () => {
     setPlayer(null);

@@ -6,12 +6,19 @@ import { Tricks } from './game/tricks';
 import { Chaser } from './game/chaser';
 import { Race } from './game/race';
 import { Header, MedalCounter, Sprite } from './ui';
+import { BTN_NAMES, GamepadInput, readPad, rumble, SLOT_BUTTONS, SlotMapper } from './game/gamepad';
 
 const KEYS_HELP: Record<ModeKind, string> = {
   tricks: 'Clavier : tape la LETTRE affichée · à partir de 30 s, 2 touches EN MÊME TEMPS',
   chaser: 'Clavier : flèches · ou touche le terrain pour t’y déplacer',
   race: 'Clavier : alterne ◀ ▶ · saute avec ▲ ou ESPACE',
 };
+const PAD_HELP: Record<ModeKind, string> = {
+  tricks: 'Manette : appuie sur le BOUTON indiqué sous la lettre · après 30 s, 2 boutons ENSEMBLE',
+  chaser: 'Manette : stick gauche ou croix',
+  race: 'Manette : alterne LB / RB (ou LT / RT) · saute avec A',
+};
+const SLOT_LABELS = SLOT_BUTTONS.map((b) => BTN_NAMES[b]);
 
 function makeMode(kind: ModeKind, sport: Sport, accent: string): Mode {
   if (kind === 'tricks') return new Tricks(sport, accent);
@@ -36,6 +43,7 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
   finishRef.current = onFinish;
   const [hud, setHud] = useState<HudItem[]>([]);
   const [letters, setLetters] = useState<string[]>([]);
+  const [padOn, setPadOn] = useState(() => readPad() !== null);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -50,10 +58,15 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
     let last = performance.now();
     let hudAcc = 1;
     let raf = 0;
+    const gp = new GamepadInput();
+    const slots = new SlotMapper();
+    let pad: Gamepad | null = null;
 
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
+      pad = gp.poll(input);
+      slots.apply(input, mode.touchLetters?.() ?? []);
       if (countdown > 0) {
         countdown -= dt;
         input.consume();
@@ -66,7 +79,10 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
         bigText(ctx, 'PARTEZ !', zone.accent);
       }
       if (mode.result) {
-        if (endTimer < 0) endTimer = 1.4;
+        if (endTimer < 0) {
+          endTimer = 1.4;
+          rumble(pad, mode.result.won ? 150 : 400, mode.result.won ? 0.3 : 1);
+        }
         bigText(ctx, mode.result.won ? 'GAGNÉ !' : 'PERDU...', mode.result.won ? C.ok : C.alert);
         endTimer -= dt;
         if (endTimer <= 0) {
@@ -79,6 +95,7 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
         hudAcc = 0;
         setHud(mode.hud());
         setLetters(mode.touchLetters?.() ?? []);
+        setPadOn(pad !== null);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -197,10 +214,11 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
               (letters.length ? letters : ['·', '·', '·', '·', '·', '·']).map((l, i) => (
                 <button key={i + l} className="px-btn letter" disabled={l === '·'} {...(l !== '·' ? hold(l) : {})}>
                   {l.toUpperCase()}
+                  {padOn && <span className="pad-hint">{SLOT_LABELS[i]}</span>}
                 </button>
               ))}
           </div>
-          <span className="help">{KEYS_HELP[kind]}</span>
+          <span className="help">{padOn ? PAD_HELP[kind] : KEYS_HELP[kind]}</span>
         </div>
       </main>
     </div>

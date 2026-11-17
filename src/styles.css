@@ -180,3 +180,28 @@ img.sprite { image-rendering: pixelated; display: block; flex-shrink: 0; }
   .board .zone, .board .time { display: none; }
   .px-btn.letter { width: 52px; height: 52px; }
 }
+
+/* Page de test manette (?view=manette) */
+.gp-test { display: flex; flex-direction: column; gap: 20px; padding-bottom: 40px; }
+.gp-test h2 { font-family: var(--pixel); font-size: 12px; color: var(--gold); margin: 0 0 10px; }
+.gp-status { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; background: var(--panel); border: 2px solid var(--line); overflow-wrap: anywhere; }
+.gp-status.ok { border-color: var(--ok); }
+.gp-status.ko { border-color: var(--alert); }
+.gp-status.wait { border-color: var(--gold); }
+.gp-status ol { margin: 6px 0 0; padding-left: 22px; }
+.gp-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.gp-btn { min-width: 56px; padding: 8px 10px; text-align: center; background: var(--row); border: 2px solid var(--line); color: var(--text2); display: flex; flex-direction: column; align-items: center; }
+.gp-btn.wide { min-width: 110px; }
+.gp-btn.on { background: var(--gold); border-color: var(--gold); color: var(--ink); }
+.gp-btn small { font-size: 16px; }
+.gp-sticks { display: flex; gap: 24px; flex-wrap: wrap; }
+.gp-stick-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.gp-stick { position: relative; width: 140px; height: 140px; border-radius: 50%; background: var(--row); border: 2px solid var(--line); }
+.gp-dead { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; border: 1px dashed var(--line); }
+.gp-dot { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--text2); transform: translate(-50%, -50%); }
+.gp-dot.on { background: var(--gold); }
+.gp-big { font-family: var(--pixel); font-size: 20px; color: var(--gold); }
+.gp-log { list-style: none; margin: 0; padding: 10px 14px; background: var(--row); border: 2px solid var(--line); min-height: 60px; font-size: 18px; color: var(--text2); }
+.gp-test a { color: var(--gold); }
+.px-btn.letter { position: relative; }
+.pad-hint { position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-family: var(--pixel); font-size: 9px; color: var(--gold); white-space: nowrap; }
