@@ -8,7 +8,7 @@ import { Race } from './game/race';
 import { Header, MedalCounter, Sprite } from './ui';
 
 const KEYS_HELP: Record<ModeKind, string> = {
-  tricks: 'Clavier : tape les LETTRES affichées, dans l’ordre',
+  tricks: 'Clavier : tape la LETTRE affichée · à partir de 30 s, 2 touches EN MÊME TEMPS',
   chaser: 'Clavier : flèches · ou touche le terrain pour t’y déplacer',
   race: 'Clavier : alterne ◀ ▶ · saute avec ▲ ou ESPACE',
 };
@@ -195,7 +195,7 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
               ))}
             {kind === 'tricks' &&
               (letters.length ? letters : ['·', '·', '·', '·', '·', '·']).map((l, i) => (
-                <button key={i + l} className="px-btn letter" disabled={l === '·'} {...(l !== '·' ? tap(l) : {})}>
+                <button key={i + l} className="px-btn letter" disabled={l === '·'} {...(l !== '·' ? hold(l) : {})}>
                   {l.toUpperCase()}
                 </button>
               ))}

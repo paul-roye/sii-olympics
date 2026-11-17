@@ -7,8 +7,9 @@ const GOAL = 8;
 const LIMIT = 30;
 const PAD = 30;
 const PLAYER_SPEED = 330;
-const PR = 22; // rayon joueur
-const BR = 16; // rayon ballon
+// Rayons de collision = taille réelle des sprites dessinés (voir draw)
+const PR = 26; // rayon joueur (sprite 10×9 dessiné en 58×52)
+const BR = 18; // rayon ballon (sprite 8×8 dessiné en 36×36)
 
 export class Chaser implements Mode {
   result: ActivityResult | null = null;
@@ -86,7 +87,7 @@ export class Chaser implements Mode {
       this.by = clamp(this.by, PAD + BR, H - PAD - BR);
     }
 
-    if (Math.hypot(this.bx - this.px, this.by - this.py) < PR + BR) {
+    if (Math.hypot(this.bx - this.px, this.by - this.py) < PR + BR - 2) {
       this.hits++;
       this.flash = 0.25;
       if (this.hits >= GOAL) return this.finish(true);
@@ -141,7 +142,7 @@ export class Chaser implements Mode {
       ctx.fillRect(this.target.x - 8, this.target.y - 2, 16, 4);
       ctx.fillRect(this.target.x - 2, this.target.y - 8, 4, 16);
     }
-    drawSprite(ctx, 'ball', this.bx, this.by + BR + 2, BR * 2.4);
-    drawSprite(ctx, 'playerTop', this.px, this.py + PR + 2, PR * 2.4);
+    drawSprite(ctx, 'ball', this.bx, this.by + BR, BR * 2);
+    drawSprite(ctx, 'playerTop', this.px, this.py + PR, PR * 2);
   }
 }

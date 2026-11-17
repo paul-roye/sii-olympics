@@ -112,8 +112,10 @@ export function pixelText(ctx: CanvasRenderingContext2D, text: string, x: number
   ctx.font = `${size}px ${PIXEL_FONT}`;
   ctx.textAlign = align;
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = C.ink;
-  ctx.fillText(text, x + size / 8 + 2, y + size / 8 + 2);
+  if (color !== C.ink) {
+    ctx.fillStyle = C.ink;
+    ctx.fillText(text, x + size / 8 + 2, y + size / 8 + 2);
+  }
   ctx.fillStyle = color;
   ctx.fillText(text, x, y);
   ctx.restore();

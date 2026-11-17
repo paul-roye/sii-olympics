@@ -12,7 +12,11 @@ const BOOST = 1.15; // m/s gagnés par appui alterné
 const DRAG = 0.34; // freinage proportionnel à la vitesse (/s)
 const MAX_V = 26;
 const HIT_FACTOR = 0.45; // vitesse conservée après un choc
-const JUMP_TIME = 0.62;
+const JUMP_DIST = 20; // m couverts par un saut (durée adaptée à la vitesse)
+const JUMP_H = 100; // px
+const LEGS_HALF = 22; // demi-largeur des pattes de la monture (px)
+const OBST_HALF = 12; // demi-largeur de l'obstacle (px)
+const OBST_H = 34; // hauteur à franchir (px)
 const RIVAL_V = 14.5;
 
 export class Race implements Mode {
@@ -24,7 +28,8 @@ export class Race implements Mode {
   private v = 0;
   private rival = 0;
   private lastMash: string | null = null;
-  private air = 0; // > 0 : en l'air
+  private air = 0; // temps de saut restant
+  private airTotal = 1;
   private obstacles: { m: number; hit?: boolean; cleared?: boolean }[] = [];
   private hits = 0;
   private cleared = 0;
@@ -41,7 +46,9 @@ export class Race implements Mode {
   }
 
   private jump() {
-    if (this.air <= 0) this.air = JUMP_TIME;
+    if (this.air > 0) return;
+    this.airTotal = Math.min(1.2, Math.max(0.55, JUMP_DIST / Math.max(this.v, 1)));
+    this.air = this.airTotal;
   }
 
   update(dt: number, input: Input) {
@@ -60,23 +67,31 @@ export class Race implements Mode {
     // rival IA : vitesse de croisière avec légères variations
     this.rival += (RIVAL_V + Math.sin(this.t * 0.7) * 1.2) * dt;
 
+    // collision : boîte des pattes vs obstacle, tant que la monture n'est pas assez haute
+    const h = this.height();
     for (const o of this.obstacles) {
       if (o.hit || o.cleared) continue;
-      if (Math.abs(o.m - this.pos) < 1.6) {
-        if (this.air > 0) {
-          o.cleared = true;
-          this.cleared++;
-        } else {
+      const dx = (o.m - this.pos) * PX_PER_M;
+      if (Math.abs(dx) < LEGS_HALF + OBST_HALF) {
+        if (h < OBST_H) {
           o.hit = true;
           this.hits++;
           this.v *= HIT_FACTOR;
           this.flash = 0.35;
         }
-      } else if (o.m < this.pos - 2) o.cleared = true; // franchi en l'air entre deux frames
+      } else if (dx < -(LEGS_HALF + OBST_HALF)) {
+        o.cleared = true;
+        this.cleared++;
+      }
     }
 
     if (this.pos >= RACE_M) this.finish(true);
     else if (this.rival >= RACE_M) this.finish(false);
+  }
+
+  /** Hauteur actuelle du saut (px). */
+  private height() {
+    return this.air > 0 ? Math.sin((1 - this.air / this.airTotal) * Math.PI) * JUMP_H : 0;
   }
 
   private finish(won: boolean) {
@@ -139,7 +154,7 @@ export class Race implements Mode {
     else pixelText(ctx, rx < 0 ? '◀ RIVAL' : 'RIVAL ▶', rx < 0 ? 16 : W - 16, GROUND - 40, 12, C.alert, rx < 0 ? 'left' : 'right');
 
     // joueur
-    const jy = this.air > 0 ? Math.sin((1 - this.air / JUMP_TIME) * Math.PI) * 90 : Math.abs(Math.sin(this.t * (4 + this.v / 2))) * 4;
+    const jy = this.air > 0 ? this.height() : Math.abs(Math.sin(this.t * (4 + this.v / 2))) * 4;
     drawSprite(ctx, 'rider', PLAYER_X, GROUND - jy, 84);
 
     // jauge de vitesse

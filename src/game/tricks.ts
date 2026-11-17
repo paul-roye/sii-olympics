@@ -1,21 +1,33 @@
-// Épreuve 1 "figures" : Quick Time Event au clavier (lettres A-Z), 60 s max.
-// Rythme : un creux, puis 1 lettre ; un creux, puis 2 lettres ; etc.
-// Une réussite raccourcit le creux et allonge la séquence suivante ; un raté ralentit (creux plus long).
-import { C, clamp, H, notchedBox, pixelText, steppedSky, W, type ActivityResult, type HudItem, type Input, type Mode } from './engine';
+// Épreuve 1 "figures" : Quick Time Event au clavier (lettres A-Z), 60 s.
+// 0-30 s : combinaisons de 1, 2, 3, 4, 5 puis 6 touches, révélées touche après touche.
+// 30-60 s : séries d'accords de 2 touches à presser EN MÊME TEMPS.
+// Chaque touche a un temps limité (cadre qui se resserre). Réussite = creux plus court, raté = creux plus long.
+import { C, clamp, H, pixelText, steppedSky, W, type ActivityResult, type HudItem, type Input, type Mode } from './engine';
 import type { Sport } from './data';
 import { drawSprite } from '../sprites';
 
 export const TRICKS_LIMIT = 60;
-const LULL_START = 3.0;
-const LULL_MIN = 1.0;
-const LULL_MAX = 4.2;
-const MAX_LEN = 6;
-const GOAL = 5; // figures à réussir pour la médaille
+const CHORD_START = 30; // passage aux accords
+const COMBO_LENGTHS = [1, 2, 3, 4, 5, 6];
+const LULL_START = 0.8; // creux entre deux combinaisons
+const LULL_MIN = 0.35;
+const LULL_MAX = 1.6;
+const KEY_WINDOW = 1.5; // temps pour une touche (diminue avec les réussites)
+const KEY_WINDOW_MIN = 0.9;
+const CHORD_WINDOW = 2.0;
+const GOAL = 18; // figures à réussir pour la médaille
 const GROUND = H - 90;
 const PLAYER_X = 220;
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz';
 
-type Phase = 'lull' | 'seq';
+type Phase = 'lull' | 'key' | 'chord';
+
+const pick = (n: number, exclude: string[] = []) => {
+  const pool = ALPHABET.split('').filter((l) => !exclude.includes(l));
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  return out;
+};
 
 export class Tricks implements Mode {
   result: ActivityResult | null = null;
@@ -23,20 +35,23 @@ export class Tricks implements Mode {
   private accent: string;
   private t = 0;
   private phase: Phase = 'lull';
+  private left = LULL_START; // temps restant de la phase courante
+  private phaseLen = LULL_START;
   private lull = LULL_START;
-  private phaseLeft = LULL_START;
-  private len = 1;
-  private seq: string[] = [];
-  private typed = 0;
-  private window = 0;
+  private keyWindow = KEY_WINDOW;
+  private comboIdx = 0; // index dans COMBO_LENGTHS
+  private comboLen = 0;
+  private comboPos = 0; // touche courante dans la combinaison
+  private current: string[] = []; // 1 lettre (combinaison) ou 2 (accord)
   private points = 0;
   private success = 0;
   private fails = 0;
-  private lettersOk = 0;
+  private keysOk = 0;
   private scroll = 0;
-  private speed = 220; // px/s, visuel
-  private anim = 0; // > 0 : figure en cours (saut + rotation)
-  private stumble = 0; // > 0 : chute
+  private speed = 220;
+  private anim = 0;
+  private stumble = 0;
+  private pop = 0; // petit effet quand une touche est validée
   private feedback: { text: string; color: string; t: number } | null = null;
   private decoys: string[] = [];
 
@@ -48,43 +63,67 @@ export class Tricks implements Mode {
   private get word() {
     return this.sport.trickWord ?? 'figure';
   }
-
-  private startSeq() {
-    const pool = ALPHABET.split('');
-    this.seq = [];
-    for (let i = 0; i < this.len; i++) this.seq.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
-    this.typed = 0;
-    this.window = 1.2 + 0.8 * this.len;
-    this.phase = 'seq';
-    this.phaseLeft = this.window;
-    // boutons tactiles : lettres utiles + leurres, mélangés
-    const extra = pool.sort(() => Math.random() - 0.5).slice(0, Math.max(0, 6 - this.len));
-    this.decoys = [...this.seq, ...extra].sort(() => Math.random() - 0.5);
+  private get chordMode() {
+    return this.t >= CHORD_START || this.comboIdx >= COMBO_LENGTHS.length;
   }
 
-  private endSeq(ok: boolean) {
-    if (ok) {
-      this.success++;
-      this.points += 5 * this.len;
-      this.len = Math.min(MAX_LEN, this.len + 1);
-      this.lull = Math.max(LULL_MIN, this.lull - 0.35);
-      this.speed = Math.min(420, this.speed + 30);
-      this.anim = 0.8;
-      this.feedback = { text: this.word === 'esquive' ? 'ESQUIVÉ !' : 'FIGURE !', color: C.ok, t: 0.9 };
+  /** 6 lettres proposées en boutons (tactile / manette) : les bonnes + des leurres. */
+  private setTouch() {
+    const extra = pick(6 - this.current.length, this.current);
+    this.decoys = [...this.current, ...extra].sort(() => Math.random() - 0.5);
+  }
+
+  private nextKey() {
+    this.current = pick(1);
+    this.phase = 'key';
+    this.left = this.phaseLen = this.keyWindow;
+    this.setTouch();
+  }
+
+  private startNext() {
+    if (this.chordMode) {
+      this.current = pick(2);
+      this.phase = 'chord';
+      this.left = this.phaseLen = CHORD_WINDOW;
+      this.setTouch();
     } else {
-      this.fails++;
-      this.lull = Math.min(LULL_MAX, this.lull + 0.6);
-      this.speed = Math.max(140, this.speed - 60);
-      this.stumble = 0.7;
-      this.feedback = { text: 'RATÉ !', color: C.alert, t: 0.9 };
+      this.comboLen = COMBO_LENGTHS[this.comboIdx];
+      this.comboPos = 0;
+      this.nextKey();
     }
+  }
+
+  private succeed(bonus: number) {
+    this.success++;
+    this.points += bonus;
+    this.lull = Math.max(LULL_MIN, this.lull - 0.1);
+    this.keyWindow = Math.max(KEY_WINDOW_MIN, this.keyWindow - 0.05);
+    this.speed = Math.min(420, this.speed + 25);
+    this.anim = 0.8;
+    this.feedback = { text: this.word === 'esquive' ? 'ESQUIVÉ !' : 'FIGURE !', color: C.ok, t: 0.8 };
+    this.toLull();
+  }
+
+  private fail() {
+    this.fails++;
+    this.lull = Math.min(LULL_MAX, this.lull + 0.3);
+    this.keyWindow = Math.min(KEY_WINDOW, this.keyWindow + 0.1);
+    this.speed = Math.max(140, this.speed - 60);
+    this.stumble = 0.7;
+    this.feedback = { text: 'RATÉ !', color: C.alert, t: 0.8 };
+    this.toLull();
+  }
+
+  private toLull() {
+    if (this.phase === 'key') this.comboIdx++;
     this.phase = 'lull';
-    this.phaseLeft = this.lull;
-    this.seq = [];
+    this.left = this.phaseLen = this.lull;
+    this.current = [];
+    this.decoys = [];
   }
 
   touchLetters() {
-    return this.phase === 'seq' ? this.decoys : [];
+    return this.phase === 'lull' ? [] : this.decoys;
   }
 
   update(dt: number, input: Input) {
@@ -93,44 +132,60 @@ export class Tricks implements Mode {
     this.scroll += this.speed * dt;
     this.anim = Math.max(0, this.anim - dt);
     this.stumble = Math.max(0, this.stumble - dt);
+    this.pop = Math.max(0, this.pop - dt);
     if (this.feedback && (this.feedback.t -= dt) <= 0) this.feedback = null;
     const presses = input.consume().filter((k) => k.length === 1);
 
-    if (this.phase === 'lull') {
-      this.phaseLeft -= dt;
-      if (this.phaseLeft <= 0) {
-        if (this.t >= TRICKS_LIMIT - 1) return this.finish();
-        this.startSeq();
-      }
-    } else {
-      for (const k of presses) {
-        if (k === this.seq[this.typed]) {
-          this.typed++;
-          this.lettersOk++;
-          this.points += 10;
-          if (this.typed === this.seq.length) return this.endSeqThenCheck(true);
-        } else return this.endSeqThenCheck(false);
-      }
-      this.phaseLeft -= dt;
-      if (this.phaseLeft <= 0) this.endSeqThenCheck(false);
-    }
-    if (this.t >= TRICKS_LIMIT && this.phase === 'lull') this.finish();
-  }
+    if (this.t >= TRICKS_LIMIT) return this.finish();
+    this.left -= dt;
 
-  private endSeqThenCheck(ok: boolean) {
-    this.endSeq(ok);
-    if (this.t >= TRICKS_LIMIT) this.finish();
+    if (this.phase === 'lull') {
+      if (this.left <= 0) this.startNext();
+      return;
+    }
+
+    if (this.phase === 'key') {
+      // à 30 s, la combinaison en cours s'arrête et on passe aux accords
+      if (this.t >= CHORD_START && this.comboIdx < COMBO_LENGTHS.length) {
+        this.comboIdx = COMBO_LENGTHS.length;
+        this.phase = 'lull';
+        this.left = this.phaseLen = this.lull;
+        this.current = [];
+        this.decoys = [];
+        return;
+      }
+      for (const k of presses) {
+        if (k !== this.current[0]) return this.fail();
+        this.keysOk++;
+        this.points += 10;
+        this.pop = 0.15;
+        this.comboPos++;
+        if (this.comboPos >= this.comboLen) return this.succeed(5 * this.comboLen);
+        return this.nextKey();
+      }
+      if (this.left <= 0) this.fail();
+      return;
+    }
+
+    // accord : les deux lettres doivent être enfoncées en même temps
+    for (const k of presses) if (!this.current.includes(k)) return this.fail();
+    if (this.current.every((l) => input.held.has(l))) {
+      this.keysOk += 2;
+      return this.succeed(30);
+    }
+    if (this.left <= 0) this.fail();
   }
 
   private finish() {
+    if (this.result) return;
     const won = this.success >= GOAL;
     const score = this.points + (won ? 50 : 0);
-    const plural = (n: number, w: string) => `${n} ${w}${n > 1 ? 's' : ''}`;
+    const s = (n: number) => (n > 1 ? 's' : '');
     this.result = {
       won,
       score,
-      details: `${plural(this.success, this.word)} réussie${this.success > 1 ? 's' : ''} · ${this.fails} ratée${this.fails > 1 ? 's' : ''}`,
-      stats: { success: this.success, fails: this.fails, letters: this.lettersOk },
+      details: `${this.success} ${this.word}${s(this.success)} réussie${s(this.success)} · ${this.fails} ratée${s(this.fails)}`,
+      stats: { success: this.success, fails: this.fails, keys: this.keysOk },
     };
   }
 
@@ -142,16 +197,37 @@ export class Tricks implements Mode {
     ];
   }
 
+  /** Touche à presser : case crème, cadre qui se resserre et passe du jaune au rouge avec le temps. */
+  private drawKey(ctx: CanvasRenderingContext2D, letter: string, cx: number, cy: number, p: number) {
+    const size = 72 + (this.pop > 0 ? 8 : 0);
+    const color = p > 0.5 ? C.gold : p > 0.25 ? '#FF8A1F' : C.alert;
+    const m = Math.round((40 * p) / 4) * 4; // marge du cadre : 40 px → 0, par pas de 4 px
+    const fs = size + 2 * m + 16;
+    const fx = cx - fs / 2;
+    const fy = cy - fs / 2;
+    ctx.fillStyle = color;
+    ctx.fillRect(fx, fy, fs, 4);
+    ctx.fillRect(fx, fy + fs - 4, fs, 4);
+    ctx.fillRect(fx, fy, 4, fs);
+    ctx.fillRect(fx + fs - 4, fy, 4, fs);
+    ctx.fillStyle = C.ink;
+    ctx.fillRect(cx - size / 2, cy - size / 2 - 4, size, size + 8);
+    ctx.fillRect(cx - size / 2 - 4, cy - size / 2, size + 8, size);
+    ctx.fillStyle = C.cream;
+    ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.fillRect(cx - size / 2, cy + size / 2 - 8, size, 8);
+    pixelText(ctx, letter.toUpperCase(), cx, cy - 2, 32, C.ink);
+  }
+
   draw(ctx: CanvasRenderingContext2D) {
     steppedSky(ctx, GROUND);
-    // décor : collines crantées en parallaxe
     ctx.fillStyle = C.night3;
     for (let i = 0; i < 8; i++) {
       const x = ((i * 140 - this.scroll * 0.25) % (W + 140) + W + 140) % (W + 140) - 70;
       ctx.fillRect(x, GROUND - 60, 100, 60);
       ctx.fillRect(x + 20, GROUND - 84, 60, 24);
     }
-    // sol
     ctx.fillStyle = this.accent;
     ctx.fillRect(0, GROUND, W, 8);
     ctx.fillStyle = C.night0;
@@ -159,47 +235,40 @@ export class Tricks implements Mode {
     ctx.fillStyle = C.line;
     for (let x = -(this.scroll % 48); x < W; x += 48) ctx.fillRect(x, GROUND + 28, 24, 8);
 
-    // obstacle / tremplin qui arrive pendant le creux, au joueur au début de la séquence
-    if (this.phase === 'lull' && this.phaseLeft < 2.2 && this.t < TRICKS_LIMIT - 1) {
-      const x = PLAYER_X + 40 + (this.phaseLeft / 2.2) * (W - PLAYER_X);
-      drawSprite(ctx, this.sport.hazard ?? 'obstacle', x, GROUND, 48);
+    // obstacle / requin qui arrive pendant le creux
+    if (this.phase === 'lull' && this.t < TRICKS_LIMIT - 0.5) {
+      const q = this.left / Math.max(this.phaseLen, 0.01);
+      drawSprite(ctx, this.sport.hazard ?? 'obstacle', PLAYER_X + 60 + q * (W - PLAYER_X), GROUND, 48);
     }
 
-    // joueur
     let y = GROUND;
     let rot = 0;
     if (this.anim > 0) {
-      const p = 1 - this.anim / 0.8;
-      y -= Math.sin(p * Math.PI) * 110;
-      rot = p * Math.PI * 2;
+      const a = 1 - this.anim / 0.8;
+      y -= Math.sin(a * Math.PI) * 100;
+      rot = a * Math.PI * 2;
     }
     if (this.stumble > 0) rot = Math.sin(this.stumble * 30) * 0.4;
     drawSprite(ctx, 'skater', PLAYER_X, y, 96, { rotate: rot });
 
-    // séquence de lettres
-    if (this.phase === 'seq') {
-      const size = 64;
-      const gap = 14;
-      const total = this.seq.length * size + (this.seq.length - 1) * gap;
-      let x = W / 2 - total / 2;
-      for (let i = 0; i < this.seq.length; i++) {
-        const done = i < this.typed;
-        notchedBox(ctx, x, 70, size, size, done ? C.ok : i === this.typed ? this.accent : C.panel2);
-        pixelText(ctx, this.seq[i].toUpperCase(), x + size / 2, 70 + size / 2 + 2, 28, done || i === this.typed ? C.ink : C.cream);
-        x += size + gap;
+    const p = clamp(this.left / Math.max(this.phaseLen, 0.01), 0, 1);
+    if (this.phase === 'key') {
+      this.drawKey(ctx, this.current[0], W / 2, 124, p);
+      // progression dans la combinaison, sans révéler les touches suivantes
+      const n = this.comboLen;
+      const x0 = W / 2 - (n * 16 + (n - 1) * 8) / 2;
+      for (let i = 0; i < n; i++) {
+        ctx.fillStyle = i < this.comboPos ? C.ok : i === this.comboPos ? C.gold : C.line;
+        ctx.fillRect(x0 + i * 24, 206, 16, 8);
       }
-      // jauge de temps
-      const bw = Math.max(total, 240);
-      ctx.fillStyle = C.ink;
-      ctx.fillRect(W / 2 - bw / 2 - 4, 154, bw + 8, 16);
-      ctx.fillStyle = C.night1;
-      ctx.fillRect(W / 2 - bw / 2, 158, bw, 8);
-      const p = this.phaseLeft / this.window;
-      ctx.fillStyle = p > 0.5 ? C.ok : p > 0.25 ? C.gold : C.alert;
-      ctx.fillRect(W / 2 - bw / 2, 158, bw * p, 8);
-    } else if (this.t < TRICKS_LIMIT - 1) {
-      pixelText(ctx, 'PRÊT…', W / 2, 100, 16, C.text2);
+    } else if (this.phase === 'chord') {
+      this.drawKey(ctx, this.current[0], W / 2 - 96, 124, p);
+      pixelText(ctx, '+', W / 2, 124, 28, C.gold);
+      this.drawKey(ctx, this.current[1], W / 2 + 96, 124, p);
+      pixelText(ctx, 'EN MÊME TEMPS !', W / 2, 214, 12, C.gold);
+    } else if (this.t < TRICKS_LIMIT - 0.5) {
+      pixelText(ctx, this.chordMode ? '2 TOUCHES ENSEMBLE !' : 'PRÊT…', W / 2, 124, 16, C.text2);
     }
-    if (this.feedback) pixelText(ctx, this.feedback.text, W / 2, 210, 24, this.feedback.color);
+    if (this.feedback) pixelText(ctx, this.feedback.text, W / 2, 252, 22, this.feedback.color);
   }
 }
