@@ -47,7 +47,7 @@ export function GamepadTest() {
 
   useEffect(() => {
     const input = new Input();
-    const gp = new GamepadInput();
+    const gp = new GamepadInput(true);
     let raf = 0;
     let lastSide = '';
     const loop = () => {

@@ -1,6 +1,7 @@
 // Petits composants d'interface 16-bit.
 import { useEffect, useState, type ReactNode } from 'react';
 import { isMuted, onMuteChange, setMuted } from './sound';
+import { getInputMode, onInputModeChange, readPads, setInputMode, type InputMode } from './game/gamepad';
 import { spriteRatio, spriteUrl } from './sprites';
 
 export function Sprite({ name, h, className }: { name: string; h: number; className?: string }) {
@@ -20,9 +21,40 @@ export function Header({ children }: { children?: ReactNode }) {
       </div>
       <div className="topbar-right">
         {children}
+        <InputModeButton />
         <MuteButton />
       </div>
     </header>
+  );
+}
+
+/** Bascule CLAVIER / MANETTE (mémorisée). En mode manette, indique si la manette est vue par le navigateur. */
+export function InputModeButton() {
+  const [mode, setMode] = useState<InputMode>(getInputMode());
+  const [seen, setSeen] = useState(false);
+  useEffect(() => onInputModeChange(setMode), []);
+  useEffect(() => {
+    if (mode !== 'manette') return;
+    const check = () => setSeen(readPads().length > 0);
+    check();
+    const id = setInterval(check, 500);
+    window.addEventListener('gamepadconnected', check);
+    window.addEventListener('gamepaddisconnected', check);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('gamepadconnected', check);
+      window.removeEventListener('gamepaddisconnected', check);
+    };
+  }, [mode]);
+  const pad = mode === 'manette';
+  return (
+    <button
+      className={'px-btn input-btn' + (pad ? (seen ? ' pad-ok' : ' pad-wait') : '')}
+      onClick={() => setInputMode(pad ? 'clavier' : 'manette')}
+      title={pad ? (seen ? 'Manette détectée — cliquer pour passer au clavier' : 'Appuie sur un bouton de la manette pour la réveiller') : 'Passer en mode manette'}
+    >
+      {pad ? (seen ? 'MANETTE ✓' : 'MANETTE : APPUIE SUR A') : 'CLAVIER'}
+    </button>
   );
 }
 

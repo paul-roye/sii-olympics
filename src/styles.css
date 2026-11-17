@@ -205,3 +205,7 @@ img.sprite { image-rendering: pixelated; display: block; flex-shrink: 0; }
 .gp-test a { color: var(--gold); }
 .px-btn.letter { position: relative; }
 .pad-hint { position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-family: var(--pixel); font-size: 9px; color: var(--gold); white-space: nowrap; }
+
+/* Bascule clavier / manette */
+.input-btn.pad-ok { background: var(--ok); color: var(--ink); }
+.input-btn.pad-wait { background: var(--gold); color: var(--ink); }

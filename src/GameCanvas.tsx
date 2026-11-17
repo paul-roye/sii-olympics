@@ -7,7 +7,7 @@ import { Chaser } from './game/chaser';
 import { Race } from './game/race';
 import { Header, MedalCounter, Sprite } from './ui';
 import { sfx } from './sound';
-import { BTN_NAMES, GamepadInput, readPad, rumble, SLOT_BUTTONS, SlotMapper } from './game/gamepad';
+import { BTN_NAMES, GamepadInput, getInputMode, onInputModeChange, rumble, SLOT_BUTTONS, SlotMapper } from './game/gamepad';
 
 const KEYS_HELP: Record<ModeKind, string> = {
   tricks: 'Clavier : tape la LETTRE affichée · à partir de 30 s, 2 touches EN MÊME TEMPS',
@@ -44,7 +44,8 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
   finishRef.current = onFinish;
   const [hud, setHud] = useState<HudItem[]>([]);
   const [letters, setLetters] = useState<string[]>([]);
-  const [padOn, setPadOn] = useState(() => readPad() !== null);
+  const [padOn, setPadOn] = useState(() => getInputMode() === 'manette');
+  useEffect(() => onInputModeChange((m) => setPadOn(m === 'manette')), []);
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -72,7 +73,7 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
       const shown = mode.touchLetters?.() ?? [];
       slots.apply(input, shown);
       // manette branchée : l'épreuve figures affiche le bouton à presser plutôt que la lettre
-      mode.setLabeler?.(pad ? (l) => SLOT_LABELS[shown.indexOf(l)] ?? l.toUpperCase() : null);
+      mode.setLabeler?.(getInputMode() === 'manette' ? (l) => SLOT_LABELS[shown.indexOf(l)] ?? l.toUpperCase() : null);
       if (countdown > 0) {
         const before = Math.ceil(countdown);
         countdown -= dt;
@@ -106,7 +107,6 @@ export function GameCanvas({ zone, kind, sport, step, medals, onFinish }: Props)
         hudAcc = 0;
         setHud(mode.hud());
         setLetters(mode.touchLetters?.() ?? []);
-        setPadOn(pad !== null);
       }
       raf = requestAnimationFrame(loop);
     };

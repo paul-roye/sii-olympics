@@ -32,11 +32,44 @@ export const SLOT_BUTTONS = [BTN.A, BTN.B, BTN.X, BTN.Y, BTN.LB, BTN.RB];
 export const DEADZONE = 0.35;
 const TRIGGER = 0.5; // seuil des gâchettes analogiques LT / RT
 
-/** Première manette connectée (la plus récente lecture, à refaire à chaque frame). */
+// ---------- Mode de contrôle : clavier ou manette (choisi par le joueur, mémorisé) ----------
+export type InputMode = 'clavier' | 'manette';
+const MODE_KEY = 'sii-olympics-input';
+let inputMode: InputMode = (() => {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'manette' ? 'manette' : 'clavier';
+  } catch {
+    return 'clavier';
+  }
+})();
+const modeListeners = new Set<(m: InputMode) => void>();
+export const getInputMode = () => inputMode;
+export function setInputMode(m: InputMode) {
+  inputMode = m;
+  try {
+    localStorage.setItem(MODE_KEY, m);
+  } catch {
+    /* stockage indisponible */
+  }
+  modeListeners.forEach((l) => l(m));
+}
+export function onInputModeChange(l: (m: InputMode) => void) {
+  modeListeners.add(l);
+  return () => {
+    modeListeners.delete(l);
+  };
+}
+
+/** Toutes les manettes connectées (certains PC exposent aussi des manettes virtuelles). */
+export function readPads(): Gamepad[] {
+  if (!('getGamepads' in navigator)) return [];
+  return [...navigator.getGamepads()].filter((p): p is Gamepad => !!p && p.connected);
+}
+
+/** La manette utilisée en dernier (horodatage le plus récent). */
 export function readPad(): Gamepad | null {
-  if (!('getGamepads' in navigator)) return null;
-  for (const p of navigator.getGamepads()) if (p && p.connected) return p;
-  return null;
+  const pads = readPads();
+  return pads.length ? pads.reduce((a, b) => (b.timestamp > a.timestamp ? b : a)) : null;
 }
 
 export function isDown(p: Gamepad, i: number): boolean {
@@ -65,20 +98,32 @@ export function logicalKeys(p: Gamepad): Set<Key> {
 
 /** Transforme l'état de la manette en appuis / relâchements sur un Input. */
 export class GamepadInput {
+  /** always = true : lit la manette même en mode clavier (page de test). */
+  private always: boolean;
+  constructor(always = false) {
+    this.always = always;
+  }
   private prev = new Set<Key>();
 
   /** Ignore les boutons déjà enfoncés (ex. A encore tenu en arrivant sur un nouvel écran). */
   prime() {
-    const p = readPad();
-    this.prev = p ? logicalKeys(p) : new Set<Key>();
+    this.prev = this.read();
     this.ignore = new Set(this.prev);
   }
   private ignore = new Set<Key>();
 
   /** À appeler une fois par frame. Renvoie la manette lue (ou null). */
+  /** Touches logiques de toutes les manettes (vide en mode clavier). */
+  private read(): Set<Key> {
+    const k = new Set<Key>();
+    if (inputMode !== 'manette' && !this.always) return k;
+    for (const p of readPads()) for (const x of logicalKeys(p)) k.add(x);
+    return k;
+  }
+
   poll(input: Input): Gamepad | null {
-    const p = readPad();
-    const now = p ? logicalKeys(p) : new Set<Key>();
+    const p = inputMode === 'manette' || this.always ? readPad() : null;
+    const now = this.read();
     // un bouton ignoré redevient actif une fois relâché
     for (const k of this.ignore) if (!now.has(k)) this.ignore.delete(k);
     for (const k of now) if (!this.prev.has(k) && !this.ignore.has(k)) input.down(k);
